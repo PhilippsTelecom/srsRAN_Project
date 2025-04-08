@@ -162,7 +162,7 @@
    void retransmit_all_pdus();
  
    /// Modifies the ECN-marking Probability
-   void modify_marking_probability(uint32_t marking_prob_) override;
+   void modify_marking_probability(int marking_prob_) override;
  
  private:
    pdcp_bearer_logger                       logger;
@@ -177,8 +177,8 @@
    // Related to Randomness
    std::random_device                       rd;
    std::mt19937                             gen;
-   std::uniform_int_distribution<uint32_t>  dis; // Random distribution
-   uint32_t                                 marking_prob=50; // ECN-Marking Probability (0 <= v <= 100)
+   std::uniform_int_distribution<int>       dis; // Random distribution
+   int                                      marking_prob=0; // ECN-Marking Probability (0 <= v <= 100)
  
    task_executor& ue_dl_executor;
    task_executor& crypto_executor;

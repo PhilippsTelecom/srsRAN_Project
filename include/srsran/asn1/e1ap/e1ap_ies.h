@@ -2519,6 +2519,7 @@ struct pdcp_cfg_s {
   t_reordering_timer_s       t_reordering_timer;
   discard_timer_e            discard_timer;
   ul_data_split_thres_e      ul_data_split_thres;
+  int                        marking_prob                  = 0;
   pdcp_dupl_e                pdcp_dupl;
   pdcp_reest_e               pdcp_reest;
   pdcp_data_recovery_e       pdcp_data_recovery;

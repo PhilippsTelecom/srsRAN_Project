@@ -233,7 +233,7 @@
  
 
    // Apply L4S marking
-   uint32_t random_number = dis(gen);
+   int random_number = dis(gen);
    if ( random_number < marking_prob )
    {
     // Debugging: it seems that everything is marked
@@ -716,7 +716,7 @@ if (cfg.discard_timer.has_value()) {
   }
 }
  
- void pdcp_entity_tx::modify_marking_probability(uint32_t marking_prob_)
+ void pdcp_entity_tx::modify_marking_probability(int marking_prob_)
  {
    marking_prob = marking_prob_;
  }

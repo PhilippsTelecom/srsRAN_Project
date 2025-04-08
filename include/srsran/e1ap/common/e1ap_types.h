@@ -133,7 +133,7 @@
    std::optional<pdcp_t_reordering>  t_reordering_timer;
    std::optional<pdcp_discard_timer> discard_timer;
    std::optional<int32_t>            ul_data_split_thres;
-   std::optional<uint32_t>           marking_prob;
+   int                               marking_prob = -1;
    std::optional<bool>               pdcp_dupl;
    std::optional<bool>               pdcp_reest;
    std::optional<bool>               pdcp_data_recovery;

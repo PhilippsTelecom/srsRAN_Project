@@ -26,6 +26,7 @@
 #include "srsran/e2/e2.h"
 #include "srsran/ran/nr_cgi.h"
 #include <memory>
+#include <iostream> // JUST FOR DEBUGGING
 
 using namespace srsran;
 using namespace asn1::e2ap;
@@ -69,15 +70,18 @@ async_task<e2_setup_response_message> e2_impl::handle_e2_setup_request(e2_setup_
     logger.info("Added RAN function OID {} to candidate list under RAN function ID {}",
                 ran_function_item.ran_function_o_id.to_string().c_str(),
                 id);
+    std::cout<<"[e2_impl.cpp]: Added RAN function OID to candidate list under RAN function ID "<<std::endl;
     std::string     ran_oid  = ran_function_item.ran_function_o_id.to_string();
     e2sm_interface* e2_iface = e2sm_mngr.get_e2sm_interface(ran_oid);
     if (e2_iface == nullptr) {
       logger.error("No E2SM interface found for RAN OID {}", ran_oid.c_str());
+      std::cout<<"[e2_impl.cpp]: No E2SM interface found for RAN OID"<<std::endl;
       continue;
     }
     ran_function_item.ran_function_definition = e2_iface->get_e2sm_packer().pack_ran_function_description();
     if (ran_function_item.ran_function_definition.size() == 0) {
       logger.error("Failed to pack RAN function description");
+      std::cout<<"[e2_impl.cpp]: Failed to pack RAN function description "<<std::endl;
       continue;
     }
     candidate_ran_functions[id] = ran_function_item;
@@ -96,6 +100,7 @@ async_task<e2_setup_response_message> e2_impl::start_initial_e2_setup_routine()
     logger.info("Added RAN function OID {} to candidate list under RAN Function ID {}",
                 ran_function_item.ran_function_o_id.to_string().c_str(),
                 id);
+    std::cout<<"[e2_impl.cpp]: Initial setup routine, editing candidate RAN function with ID "<<id<<std::endl;
     candidate_ran_functions[id] = ran_function_item;
   }
 
@@ -181,15 +186,19 @@ void e2_impl::handle_message(const e2_message& msg)
   switch (msg.pdu.type().value) {
     case asn1::e2ap::e2ap_pdu_c::types_opts::init_msg:
       handle_initiating_message(msg.pdu.init_msg());
+      std::cout<<"[e2_impl.cpp]: Initiating Message"<<std::endl;
       break;
     case asn1::e2ap::e2ap_pdu_c::types_opts::successful_outcome:
       handle_successful_outcome(msg.pdu.successful_outcome());
+      std::cout<<"[e2_impl.cpp]: Successful Outcome"<<std::endl;
       break;
     case asn1::e2ap::e2ap_pdu_c::types_opts::unsuccessful_outcome:
       handle_unsuccessful_outcome(msg.pdu.unsuccessful_outcome());
+      std::cout<<"[e2_impl.cpp]: Unsuccessful Outcome"<<std::endl;
       break;
     default:
       logger.error("Invalid E2 PDU type");
+      std::cout<<"[e2_impl.cpp]: Invalid E2 PDU type"<<std::endl;
       break;
   }
 }
@@ -258,6 +267,7 @@ void e2_impl::handle_unsuccessful_outcome(const asn1::e2ap::unsuccessful_outcome
 
 void e2_impl::set_allowed_ran_functions(uint16_t ran_function_id)
 {
+  std::cout<<"[e2_impl.cpp]: Setting allowed RAN function = "<<ran_function_id<<std::endl;
   if (candidate_ran_functions.count(ran_function_id)) {
     allowed_ran_functions[ran_function_id] = candidate_ran_functions[ran_function_id];
     std::string ran_func_oid               = allowed_ran_functions[ran_function_id].ran_function_o_id.to_string();

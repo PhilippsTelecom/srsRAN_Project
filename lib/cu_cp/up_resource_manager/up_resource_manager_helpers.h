@@ -42,6 +42,11 @@ bool is_valid(const cu_cp_pdu_session_resource_release_command& pdu,
               const up_context&                                 context,
               const up_resource_manager_cfg&                    cfg,
               const srslog::basic_logger&                       logger);
+// Added for ECN-CE marking probability
+bool is_valid(const cu_cp_intra_drb_modification_request& pdu,
+            const up_context&                                 context,
+            const up_resource_manager_cfg&                    cfg,
+            const srslog::basic_logger&                       logger);
 
 /// \brief Validates that a given FiveQI has a valid PDCP and SDAP config.
 bool is_valid(five_qi_t five_qi, const up_resource_manager_cfg& cfg, const srslog::basic_logger& logger);
@@ -56,8 +61,7 @@ five_qi_t get_five_qi(const cu_cp_qos_flow_add_or_mod_item& qos_flow,
 /// \param pdu The PDU session resource setup/modification request or release command.
 /// \param  contest The currently active UP resource allocation.
 /// \return The config update struct
-up_config_update
-calculate_update(const slotted_id_vector<pdu_session_id_t, cu_cp_pdu_session_res_setup_item>& setup_items,
+up_config_update calculate_update(const slotted_id_vector<pdu_session_id_t, cu_cp_pdu_session_res_setup_item>& setup_items,
                  const up_context&                                                            context,
                  const up_resource_manager_cfg&                                               cfg,
                  const srslog::basic_logger&                                                  logger);
@@ -69,6 +73,11 @@ up_config_update calculate_update(const cu_cp_pdu_session_resource_release_comma
                                   const up_context&                                 context,
                                   const up_resource_manager_cfg&                    cfg,
                                   const srslog::basic_logger&                       logger);
+// Added for ECN-CE marking probability
+up_config_update calculate_update(const cu_cp_intra_drb_modification_request& pdu,
+                                const up_context&                                 context,
+                                const up_resource_manager_cfg&                    cfg,
+                                const srslog::basic_logger&                       logger);
 
 // \brief Allocates a new DRB ID and returns it.
 drb_id_t allocate_drb_id(const up_pdu_session_context_update& new_session_context,

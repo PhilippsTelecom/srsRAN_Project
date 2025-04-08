@@ -32,6 +32,7 @@ void srsran::srs_cu_cp::fill_e1ap_drb_pdcp_config(e1ap_pdcp_config& e1ap_pdcp_cf
   e1ap_pdcp_cfg.pdcp_sn_size_dl = cu_cp_pdcp_cfg.rx.sn_size;
   e1ap_pdcp_cfg.rlc_mod         = cu_cp_pdcp_cfg.rlc_mode;
   e1ap_pdcp_cfg.discard_timer   = cu_cp_pdcp_cfg.tx.discard_timer;
+  e1ap_pdcp_cfg.marking_prob    = cu_cp_pdcp_cfg.tx.marking_prob;// ECN-CE Marking Probability
   if (cu_cp_pdcp_cfg.rx.t_reordering != pdcp_t_reordering::infinity) {
     e1ap_pdcp_cfg.t_reordering_timer = cu_cp_pdcp_cfg.rx.t_reordering;
   }

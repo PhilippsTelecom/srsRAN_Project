@@ -23,6 +23,7 @@
 #pragma once
 
 #include "srsran/cu_cp/mobility_manager_config.h"
+#include "srsran/cu_cp/drb_modifier_config.h" // ECN-CE Marking Probability
 #include "srsran/ran/cu_types.h"
 #include "srsran/ran/logical_channel/lcid.h"
 #include "srsran/ran/nr_cgi.h"
@@ -42,12 +43,14 @@ struct cu_handover_control_config {
 class cu_configurator
 {
 public:
-  cu_configurator(srs_cu_cp::mobility_manager_cu_cp_notifier& mobility_notif_) : mobility_notif(mobility_notif_) {}
+  cu_configurator(srs_cu_cp::mobility_manager_cu_cp_notifier& mobility_notif_, srsran::srs_cu_cp::drb_modifier_cu_cp_notifier& modif_drb_notif_ ) : mobility_notif(mobility_notif_), modif_drb_notif(modif_drb_notif_) {}
   virtual ~cu_configurator() = default;
   srs_cu_cp::mobility_manager_cu_cp_notifier& get_mobility_notifier() { return mobility_notif; }
+  srsran::srs_cu_cp::drb_modifier_cu_cp_notifier& get_drb_modifier_notifier() { return modif_drb_notif; }
 
 private:
   srs_cu_cp::mobility_manager_cu_cp_notifier& mobility_notif;
+  srsran::srs_cu_cp::drb_modifier_cu_cp_notifier& modif_drb_notif;
 };
 
 } // namespace srsran

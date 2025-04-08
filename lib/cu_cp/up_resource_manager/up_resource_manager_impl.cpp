@@ -48,6 +48,11 @@ bool up_resource_manager::validate_request(const cu_cp_pdu_session_resource_rele
   return is_valid(pdu, context, cfg, logger);
 }
 
+bool up_resource_manager::validate_request(const cu_cp_intra_drb_modification_request& pdu) const
+{
+  return is_valid(pdu, context, cfg, logger);
+}
+
 up_config_update up_resource_manager::calculate_update(
     const slotted_id_vector<pdu_session_id_t, cu_cp_pdu_session_res_setup_item>& setup_items)
 {
@@ -64,6 +69,13 @@ up_config_update up_resource_manager::calculate_update(const cu_cp_pdu_session_r
 up_config_update up_resource_manager::calculate_update(const cu_cp_pdu_session_resource_release_command& pdu)
 {
   srsran_assert(is_valid(pdu, context, cfg, logger), "Invalid PDU Session Resource Release command.");
+  return srsran::srs_cu_cp::calculate_update(pdu, context, cfg, logger);
+}
+
+up_config_update up_resource_manager::calculate_update(const cu_cp_intra_drb_modification_request& pdu)
+{
+  // Associe a un UE
+  srsran_assert(is_valid(pdu, context, cfg, logger), "Invalid DRB ECN-CE Marking Modify request.");
   return srsran::srs_cu_cp::calculate_update(pdu, context, cfg, logger);
 }
 

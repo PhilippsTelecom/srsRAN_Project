@@ -69,7 +69,8 @@ e2_entity::e2_entity(const e2ap_configuration                                 cf
     if (std::holds_alternative<srs_du::du_configurator*>(configurator_)) {
       control_service_style_id = 2;
     } else {
-      control_service_style_id = 3;
+      // Service Style 1 to control ECN-CE Marking Probability
+      control_service_style_id = 1;
     }
 
     std::unique_ptr<e2sm_control_service> rc_control_service_style =
@@ -82,7 +83,7 @@ e2_entity::e2_entity(const e2ap_configuration                                 cf
           if constexpr (std::is_same_v<T, srs_du::du_configurator*>) {
             rc_control_action_executor = std::make_unique<e2sm_rc_control_action_2_6_du_executor>(*arg);
           } else if constexpr (std::is_same_v<T, cu_configurator*>) {
-            rc_control_action_executor = std::make_unique<e2sm_rc_control_action_3_1_cu_executor>(*arg);
+            rc_control_action_executor = std::make_unique<e2sm_rc_control_action_1_1_cu_executor>(*arg);
           }
         },
         configurator_);

@@ -124,12 +124,6 @@
    ///
    /// \param highest_sn Highest in a sequence delivered retransmitted PDCP PDU sequence number.
    virtual void handle_delivery_retransmitted_notification(uint32_t highest_sn) = 0;
-
-   /// \brief Tells how to mark the packets (ECN-CE) in the downlink
-   ///
-   /// \param marking_prob The marking Probability computed by L4S ///
-   //  [TODO] on peut l'oter ??
-   //virtual void modify_marking_probability(uint32_t marking_prob) = 0;
  };
  
  /// This interface represents the data entry point of the transmitting side of a PDCP entity.
@@ -147,7 +141,7 @@
    /// Handle the incoming SDU.
    virtual void handle_sdu(byte_buffer sdu) = 0;
    // Used to change the ECN-CE marking probability
-   virtual void modify_marking_probability(uint32_t marking_prob_) = 0;
+   virtual void modify_marking_probability(int marking_prob_) = 0;
  };
  
  /// This interface represents the control SAP of the transmitting side of a PDCP entity.

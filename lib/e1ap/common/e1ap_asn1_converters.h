@@ -811,6 +811,9 @@ inline asn1::e1ap::pdcp_cfg_s pdcp_config_to_e1ap_asn1(e1ap_pdcp_config pdcp_cfg
     asn1::number_to_enum(asn1_pdcp_cfg.ul_data_split_thres, pdcp_cfg.ul_data_split_thres.value());
   }
 
+  // Copy ECN-CE Marking Probability
+  asn1_pdcp_cfg.marking_prob = pdcp_cfg.marking_prob;
+
   // Fill PDCP dupl.
   if (pdcp_cfg.pdcp_dupl.has_value()) {
     asn1_pdcp_cfg.pdcp_dupl_present = true;
@@ -930,6 +933,9 @@ inline e1ap_pdcp_config e1ap_asn1_to_pdcp_config(asn1::e1ap::pdcp_cfg_s asn1_pdc
   if (asn1_pdcp_cfg.ul_data_split_thres_present) {
     pdcp_cfg.ul_data_split_thres = asn1_pdcp_cfg.ul_data_split_thres.to_number();
   }
+
+  // Fill ECN-CE Marking Probability
+  pdcp_cfg.marking_prob = asn1_pdcp_cfg.marking_prob;
 
   // Fill PDCP dupl.
   if (asn1_pdcp_cfg.pdcp_dupl_present) {

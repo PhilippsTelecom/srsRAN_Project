@@ -20,53 +20,77 @@
  *
  */
 
-#pragma once
+ #pragma once
 
-#include "srsran/asn1/asn1_utils.h"
-#include "srsran/cu_cp/cu_configurator.h"
-#include "srsran/e2/e2.h"
-#include "srsran/e2/e2sm/e2sm.h"
-#include <map>
+ #include "srsran/asn1/asn1_utils.h"
+ #include "srsran/cu_cp/cu_configurator.h"
+ #include "srsran/e2/e2.h"
+ #include "srsran/e2/e2sm/e2sm.h"
+ #include <map>
+ 
+ namespace srsran {
+ 
 
-namespace srsran {
+ class e2sm_rc_control_action_cu_executor_base : public e2sm_control_action_executor
+ {
+ public:
+   e2sm_rc_control_action_cu_executor_base() = delete;
+   e2sm_rc_control_action_cu_executor_base(cu_configurator& cu_configurator_, uint32_t action_id_);
+   virtual ~e2sm_rc_control_action_cu_executor_base() = default;
+ 
+   bool fill_ran_function_description(asn1::e2sm::ran_function_definition_ctrl_action_item_s& action_item);
+ 
+   /// e2sm_control_request_executor functions.
+   uint32_t                              get_action_id() override;
+   bool                                  ric_control_action_supported(const e2sm_ric_control_request& req) override = 0;
+   async_task<e2sm_ric_control_response> execute_ric_control_action(const e2sm_ric_control_request& req) override   = 0;
+   async_task<e2sm_ric_control_response> return_ctrl_failure(const e2sm_ric_control_request& req);
+ 
+ protected:
+   srslog::basic_logger& logger;
+   uint32_t              action_id;
+   cu_configurator&      cu_param_configurator;
+ };
+ 
 
-class e2sm_rc_control_action_cu_executor_base : public e2sm_control_action_executor
-{
-public:
-  e2sm_rc_control_action_cu_executor_base() = delete;
-  e2sm_rc_control_action_cu_executor_base(cu_configurator& cu_configurator_, uint32_t action_id_);
-  virtual ~e2sm_rc_control_action_cu_executor_base() = default;
+ class e2sm_rc_control_action_3_1_cu_executor : public e2sm_rc_control_action_cu_executor_base
+ {
+ public:
+   e2sm_rc_control_action_3_1_cu_executor(cu_configurator& du_configurator_);
+   virtual ~e2sm_rc_control_action_3_1_cu_executor() = default;
+ 
+   /// e2sm_control_request_executor functions.
+   bool                                  ric_control_action_supported(const e2sm_ric_control_request& req) override;
+   async_task<e2sm_ric_control_response> execute_ric_control_action(const e2sm_ric_control_request& req) override;
+   void parse_action_ran_parameter_value(const asn1::e2sm::ran_param_value_type_c& ran_p,
+                                         uint64_t                                  ran_param_id,
+                                         uint64_t                                  ue_id,
+                                         cu_handover_control_config&               ctrl_cfg);
+   using T = cu_handover_control_config;
+ 
+ private:
+ };
+ 
 
-  bool fill_ran_function_description(asn1::e2sm::ran_function_definition_ctrl_action_item_s& action_item);
-
-  /// e2sm_control_request_executor functions.
-  uint32_t                              get_action_id() override;
-  bool                                  ric_control_action_supported(const e2sm_ric_control_request& req) override = 0;
-  async_task<e2sm_ric_control_response> execute_ric_control_action(const e2sm_ric_control_request& req) override   = 0;
-  async_task<e2sm_ric_control_response> return_ctrl_failure(const e2sm_ric_control_request& req);
-
-protected:
-  srslog::basic_logger& logger;
-  uint32_t              action_id;
-  cu_configurator&      cu_param_configurator;
-};
-
-class e2sm_rc_control_action_3_1_cu_executor : public e2sm_rc_control_action_cu_executor_base
-{
-public:
-  e2sm_rc_control_action_3_1_cu_executor(cu_configurator& du_configurator_);
-  virtual ~e2sm_rc_control_action_3_1_cu_executor() = default;
-
-  /// e2sm_control_request_executor functions.
-  bool                                  ric_control_action_supported(const e2sm_ric_control_request& req) override;
-  async_task<e2sm_ric_control_response> execute_ric_control_action(const e2sm_ric_control_request& req) override;
-  void parse_action_ran_parameter_value(const asn1::e2sm::ran_param_value_type_c& ran_p,
-                                        uint64_t                                  ran_param_id,
-                                        uint64_t                                  ue_id,
-                                        cu_handover_control_config&               ctrl_cfg);
-  using T = cu_handover_control_config;
-
-private:
-};
-
-} // namespace srsran
+ // Added: Service Style 1, Action 1 : to change ECN-CE marking probability
+ class e2sm_rc_control_action_1_1_cu_executor : public e2sm_rc_control_action_cu_executor_base
+ {
+ public:
+   e2sm_rc_control_action_1_1_cu_executor(cu_configurator& cu_configurator_);
+   virtual ~e2sm_rc_control_action_1_1_cu_executor() = default;
+ 
+   /// e2sm_control_request_executor functions.
+   bool                                  ric_control_action_supported(const e2sm_ric_control_request& req) override;
+   async_task<e2sm_ric_control_response> execute_ric_control_action(const e2sm_ric_control_request& req) override;
+   void parse_action_ran_parameter_value(const asn1::e2sm::ran_param_value_type_c&      ran_p,
+                                         uint64_t                                       ran_param_id,
+                                         uint64_t                                         ue_id,
+                                         srs_cu_cp::cu_cp_intra_drb_modification_request& ctrl_cfg);
+   using T = srs_cu_cp::cu_cp_intra_drb_modification_request;
+ 
+ private:
+    srs_cu_cp::cu_cp_intra_drb_modification_request convert_to_cu_config_request(const e2sm_ric_control_request& e2sm_req_);
+ };
+ 
+ } // namespace srsran
+ 

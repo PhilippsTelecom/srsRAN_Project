@@ -309,6 +309,16 @@ public:
                                    du_index_t&                            target_du_index) = 0;
 };
 
+/// Interface to modify bearer (cf E2 agent)
+class cu_cp_drb_modification_handler
+{
+  public: 
+    virtual ~cu_cp_drb_modification_handler() = default;
+
+    /// \brief Modify a DRB, will be used by E2SM-RC
+    virtual async_task<cu_cp_intra_drb_modification_response> handle_intra_drb_modification_request(const cu_cp_intra_drb_modification_request& request) = 0;
+};
+
 /// Interface to handle ue removals.
 class cu_cp_ue_removal_handler
 {
@@ -332,7 +342,8 @@ class cu_cp_impl_interface : public cu_cp_e1ap_event_handler,
                              public cu_cp_nrppa_handler,
                              public cu_cp_ue_context_manipulation_handler,
                              public cu_cp_mobility_manager_handler,
-                             public cu_cp_ue_removal_handler
+                             public cu_cp_ue_removal_handler,
+                             public cu_cp_drb_modification_handler // For ECN-CE changes
 {
 public:
   virtual ~cu_cp_impl_interface() = default;
@@ -345,6 +356,7 @@ public:
   virtual cu_cp_measurement_handler&             get_cu_cp_measurement_handler()        = 0;
   virtual cu_cp_measurement_config_handler&      get_cu_cp_measurement_config_handler() = 0;
   virtual cu_cp_mobility_manager_handler&        get_cu_cp_mobility_manager_handler()   = 0;
+  virtual cu_cp_drb_modification_handler&        get_cu_cp_drb_modification_handler()   = 0;
   virtual cu_cp_ue_removal_handler&              get_cu_cp_ue_removal_handler()         = 0;
 };
 

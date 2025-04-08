@@ -26,6 +26,7 @@
 #include "adapters/du_processor_adapters.h"
 #include "adapters/e1ap_adapters.h"
 #include "adapters/mobility_manager_adapters.h"
+#include "adapters/drb_modifier_adapter.h" // For ECN-CE modification
 #include "adapters/ngap_adapters.h"
 #include "adapters/nrppa_adapters.h"
 #include "adapters/rrc_du_adapters.h"
@@ -149,6 +150,10 @@ public:
                                    du_index_t&                            source_du_index,
                                    du_index_t&                            target_du_index) override;
 
+  // cu_cp_drb_modification_handler
+  async_task<cu_cp_intra_drb_modification_response> 
+  handle_intra_drb_modification_request(const cu_cp_intra_drb_modification_request& request) override;
+
   // cu_cp_ue_removal_handler.
   async_task<void> handle_ue_removal_request(ue_index_t ue_index) override;
   void             handle_pending_ue_task_cancellation(ue_index_t ue_index) override;
@@ -157,20 +162,21 @@ public:
   metrics_handler&                get_metrics_handler() override { return *metrics_hdlr; }
 
   // cu_cp public interface.
-  cu_cp_f1c_handler&                     get_f1c_handler() override { return controller->get_f1c_handler(); }
-  cu_cp_e1_handler&                      get_e1_handler() override { return controller->get_e1_handler(); }
-  cu_cp_e1ap_event_handler&              get_cu_cp_e1ap_handler() override { return *this; }
-  cu_cp_ng_handler&                      get_ng_handler() override { return *this; }
-  cu_cp_ngap_handler&                    get_cu_cp_ngap_handler() override { return *this; }
-  cu_cp_nrppa_handler&                   get_cu_cp_nrppa_handler() override { return *this; }
-  cu_cp_command_handler&                 get_command_handler() override { return *this; }
-  cu_cp_rrc_ue_interface&                get_cu_cp_rrc_ue_interface() override { return *this; }
-  cu_cp_measurement_handler&             get_cu_cp_measurement_handler() override { return *this; }
-  cu_cp_measurement_config_handler&      get_cu_cp_measurement_config_handler() override { return *this; }
-  cu_cp_mobility_manager_handler&        get_cu_cp_mobility_manager_handler() override { return *this; }
-  cu_cp_ue_removal_handler&              get_cu_cp_ue_removal_handler() override { return *this; }
-  cu_cp_ue_context_manipulation_handler& get_cu_cp_ue_context_handler() override { return *this; }
-  cu_configurator&                       get_cu_configurator() override { return cu_cp_cfgtr; }
+  cu_cp_f1c_handler&                      get_f1c_handler() override { return controller->get_f1c_handler(); }
+  cu_cp_e1_handler&                       get_e1_handler() override { return controller->get_e1_handler(); }
+  cu_cp_e1ap_event_handler&               get_cu_cp_e1ap_handler() override { return *this; }
+  cu_cp_ng_handler&                       get_ng_handler() override { return *this; }
+  cu_cp_ngap_handler&                     get_cu_cp_ngap_handler() override { return *this; }
+  cu_cp_nrppa_handler&                    get_cu_cp_nrppa_handler() override { return *this; }
+  cu_cp_command_handler&                  get_command_handler() override { return *this; }
+  cu_cp_rrc_ue_interface&                 get_cu_cp_rrc_ue_interface() override { return *this; }
+  cu_cp_measurement_handler&              get_cu_cp_measurement_handler() override { return *this; }
+  cu_cp_measurement_config_handler&       get_cu_cp_measurement_config_handler() override { return *this; }
+  cu_cp_mobility_manager_handler&         get_cu_cp_mobility_manager_handler() override { return *this; }
+  cu_cp_drb_modification_handler&         get_cu_cp_drb_modification_handler() override { return *this; } // 
+  cu_cp_ue_removal_handler&               get_cu_cp_ue_removal_handler() override { return *this; }
+  cu_cp_ue_context_manipulation_handler&  get_cu_cp_ue_context_handler() override { return *this; }
+  cu_configurator&                        get_cu_configurator() override { return cu_cp_cfgtr; }
 
 private:
   // Handling of DU events.
@@ -219,6 +225,9 @@ private:
 
   // Mobility manager to CU-CP adapter.
   mobility_manager_adapter mobility_manager_ev_notifier;
+
+  // DRB manager to CU-CP adapter
+  drb_manager_adapter drb_manager_notifier;
 
   // RRC DU to CU-CP adapter.
   rrc_du_cu_cp_adapter rrc_du_cu_cp_notifier;

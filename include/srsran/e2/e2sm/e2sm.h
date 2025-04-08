@@ -105,7 +105,9 @@ public:
               ran_seq.ran_param_value_type, ran_seq.ran_param_id, ue_id, ctrl_cfg, parse_action_ran_parameter_value);
         }
       }
-    } else if (ran_param.type() == asn1::e2sm::ran_param_value_type_c::types_opts::ran_p_choice_elem_false) {
+    } else if (ran_param.type() == asn1::e2sm::ran_param_value_type_c::types_opts::ran_p_choice_elem_false ||
+    ran_param.type() == asn1::e2sm::ran_param_value_type_c::types_opts::ran_p_choice_elem_true) {
+      // It ignored the elements marked `choice_elem_true`
       parse_action_ran_parameter_value(ran_param, ran_param_id, ue_id, ctrl_cfg);
     }
   }

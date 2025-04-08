@@ -29,6 +29,7 @@
 #include "routines/mobility/intra_cu_handover_routine.h"
 #include "routines/mobility/intra_cu_handover_target_routine.h"
 #include "routines/pdu_session_resource_modification_routine.h"
+#include "routines/pdu_session_drb_ecn_modification_routine.h" // Routine to set ECN-CE marking probability
 #include "routines/pdu_session_resource_release_routine.h"
 #include "routines/pdu_session_resource_setup_routine.h"
 #include "routines/reestablishment_context_modification_routine.h"
@@ -80,7 +81,7 @@ cu_cp_impl::cu_cp_impl(const cu_cp_configuration& config_) :
   paging_handler(du_db),
   metrics_hdlr(
       std::make_unique<metrics_handler_impl>(*cfg.services.cu_cp_executor, *cfg.services.timers, ue_mng, du_db)),
-  cu_cp_cfgtr(mobility_manager_ev_notifier)
+  cu_cp_cfgtr(mobility_manager_ev_notifier,drb_manager_notifier)
 {
   assert_cu_cp_configuration_valid(cfg);
 
@@ -90,6 +91,7 @@ cu_cp_impl::cu_cp_impl(const cu_cp_configuration& config_) :
   ngap_cu_cp_ev_notifier.connect_cu_cp(get_cu_cp_ngap_handler(), paging_handler);
   nrppa_cu_cp_ev_notifier.connect_cu_cp(get_cu_cp_nrppa_handler());
   mobility_manager_ev_notifier.connect_cu_cp(get_cu_cp_mobility_manager_handler());
+  drb_manager_notifier.connect_cu_cp(get_cu_cp_drb_modification_handler());
   e1ap_ev_notifier.connect_cu_cp(get_cu_cp_e1ap_handler());
   rrc_du_cu_cp_notifier.connect_cu_cp(get_cu_cp_measurement_config_handler());
 
@@ -719,6 +721,22 @@ cu_cp_impl::handle_intra_cu_handover_request(const cu_cp_intra_cu_handover_reque
       get_cu_cp_ue_removal_handler(),
       *this,
       ue_mng,
+      logger);
+}
+
+async_task<cu_cp_intra_drb_modification_response> 
+cu_cp_impl::handle_intra_drb_modification_request(const cu_cp_intra_drb_modification_request& request)
+{
+  cu_cp_ue* ue = ue_mng.find_du_ue(request.ue_id);
+  srsran_assert(ue != nullptr, "ue={}: Could not find DU UE", request.ue_id);
+  srsran_assert(cu_up_db.find_cu_up_processor(uint_to_cu_up_index(0)) != nullptr,
+                 "cu_up_index={}: could not find CU-UP",
+                 uint_to_cu_up_index(0));
+
+  return launch_async<pdu_session_drb_ecn_modification_routine>(
+      request,
+      cu_up_db.find_cu_up_processor(uint_to_cu_up_index(0))->get_e1ap_bearer_context_manager(),
+      ue->get_up_resource_manager(),
       logger);
 }
 

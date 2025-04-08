@@ -78,11 +78,12 @@ public:
   bool validate_request(const slotted_id_vector<pdu_session_id_t, cu_cp_pdu_session_res_setup_item>& setup_items) const;
   bool validate_request(const cu_cp_pdu_session_resource_modify_request& pdu) const;
   bool validate_request(const cu_cp_pdu_session_resource_release_command& pdu) const;
+  bool validate_request(const cu_cp_intra_drb_modification_request& pdu) const; // Structure E2AP: ECN-CE marking
 
-  up_config_update
-  calculate_update(const slotted_id_vector<pdu_session_id_t, cu_cp_pdu_session_res_setup_item>& setup_items);
+  up_config_update calculate_update(const slotted_id_vector<pdu_session_id_t, cu_cp_pdu_session_res_setup_item>& setup_items);
   up_config_update calculate_update(const cu_cp_pdu_session_resource_modify_request& pdu);
   up_config_update calculate_update(const cu_cp_pdu_session_resource_release_command& pdu);
+  up_config_update calculate_update(const cu_cp_intra_drb_modification_request& pdu); // Structure E2AP: ECN-CE marking vers up_config_update
 
   bool                          apply_config_update(const up_config_update_result& config);
   const up_pdu_session_context& get_pdu_session_context(pdu_session_id_t psi) const;

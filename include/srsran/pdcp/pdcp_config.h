@@ -212,6 +212,7 @@ struct pdcp_config {
     pdcp_security_direction           direction;
     std::optional<pdcp_discard_timer> discard_timer;
     bool                              status_report_required;
+    int                               marking_prob = -1; // ECN-CE marking probability
   } tx;
   struct {
     pdcp_sn_size            sn_size;

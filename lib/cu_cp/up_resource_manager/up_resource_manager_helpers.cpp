@@ -22,6 +22,8 @@
 
 #include "up_resource_manager_helpers.h"
 
+#include <iostream> // JUST FOR DEBUGGING
+
 using namespace srsran;
 using namespace srs_cu_cp;
 
@@ -205,6 +207,32 @@ bool srsran::srs_cu_cp::is_valid(const cu_cp_pdu_session_resource_release_comman
     }
   }
 
+  return true;
+}
+
+/// \brief Validates an incoming DRB modification request.
+bool srsran::srs_cu_cp::is_valid(const cu_cp_intra_drb_modification_request& pdu,
+  const up_context&                                 context,
+  const up_resource_manager_cfg&                    cfg,
+  const srslog::basic_logger&                       logger)
+{
+  // Context already associated to a specific UE
+
+  // Test if PDU exists
+  if (context.pdu_sessions.find(pdu.target_pdu_index) == context.pdu_sessions.end()) {
+    std::cout<<"[up_resource_manager_helpers.cpp]: does not find PDU session"<<std::endl;
+    logger.warning("Can't modify PDU session ID {} - session doesn't exist", pdu.target_pdu_index);
+    return false;
+  }
+
+  // Test if DRB exists
+  if (! contains_drb(context, pdu.target_drb_index)) {
+    std::cout<<"[up_resource_manager_helpers.cpp]: does not contain DRB"<<std::endl;
+    logger.warning("Can't modify DRB ID {} - doesn't exist", drb_id_to_uint(pdu.target_drb_index));
+    return false;
+  }
+
+  std::cout<<"[up_resource_manager_helpers.cpp]: we found both the PDU session and the DRB ID: Good "<<std::endl;
   return true;
 }
 
@@ -435,6 +463,44 @@ up_config_update srsran::srs_cu_cp::calculate_update(const cu_cp_pdu_session_res
     }
     update.pdu_sessions_to_remove_list.push_back(release_item.pdu_session_id);
   }
+
+  return update;
+}
+
+// For DRB modification: ECN-CE
+up_config_update srsran::srs_cu_cp::calculate_update(const cu_cp_intra_drb_modification_request& pdu,
+  const up_context&                                 context,
+  const up_resource_manager_cfg&                    cfg,
+  const srslog::basic_logger&                       logger)
+{
+  // GLOBAL: `up_config_update` <=> update
+  up_config_update update;
+  update.initial_context_creation = false;
+  
+
+  // PDU: `up_pdu_session_context_update` <=> ctxt_update
+  pdu_session_id_t target_pdu = pdu.target_pdu_index;
+  auto pdu_ctx_iter = context.pdu_sessions.find(target_pdu); // Existing context - Iterator
+  srsran_assert(pdu_ctx_iter != context.pdu_sessions.end(),
+  "PDU session does not exist.");
+  up_pdu_session_context pdu_ctx = pdu_ctx_iter->second;
+  up_pdu_session_context_update ctxt_update(target_pdu); // SETS PDU SESSION ID
+
+
+  // DRB: `up_drb_context` <=> drb_ctxt_update
+  drb_id_t target_drb = pdu.target_drb_index;
+  srsran_assert( (target_drb != drb_id_t::invalid) && (context.drb_map.find(target_drb) != context.drb_map.end()),
+    "{} has to exist in current PDU session context or in context update",target_drb);
+  auto drb_ctx_iter = pdu_ctx.drbs.find(target_drb); // Existing context - Iterator (drb exists)
+  up_drb_context drb_ctx_update = drb_ctx_iter->second; 
+  // Apply changes: ECN-CE Marking
+  drb_ctx_update.pdcp_cfg.tx.marking_prob=pdu.marking_prob;
+
+  
+  // Add <> Russian doll
+  ctxt_update.drb_to_modify.emplace(drb_ctx_update.drb_id,drb_ctx_update);
+  update.pdu_sessions_to_modify_list.emplace(ctxt_update.id,ctxt_update);
+
 
   return update;
 }

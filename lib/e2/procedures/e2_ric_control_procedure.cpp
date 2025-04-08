@@ -22,6 +22,8 @@
 
 #include "e2_ric_control_procedure.h"
 
+#include <iostream> // JUST FOR DEBUGGING
+
 using namespace srsran;
 using namespace asn1::e2ap;
 using namespace asn1::e2sm;
@@ -40,6 +42,7 @@ void e2_ric_control_procedure::operator()(coro_context<async_task<void>>& ctx)
   e2sm_iface = e2sm_mng.get_e2sm_interface(e2_request.request->ran_function_id);
 
   if (!e2sm_iface) {
+    std::cout<<"[e2_ric_control_procedure.cpp] RAN function ID not supported"<<std::endl;
     logger.error("RAN function ID not supported");
     CORO_EARLY_RETURN();
   }
@@ -48,11 +51,13 @@ void e2_ric_control_procedure::operator()(coro_context<async_task<void>>& ctx)
   control_service = e2sm_iface->get_e2sm_control_service(ric_ctrl_req);
 
   if (!control_service) {
+    std::cout<<"[e2_ric_control_procedure.cpp] RIC Control Service not supported"<<std::endl;
     logger.error("RIC Control Service not supported");
     CORO_EARLY_RETURN();
   }
 
   if (!control_service->control_request_supported(ric_ctrl_req)) {
+    std::cout<<"[e2_ric_control_procedure.cpp] RIC Control Request not supported"<<std::endl;
     logger.error("RIC Control Request not supported");
     CORO_EARLY_RETURN();
   }
@@ -61,8 +66,10 @@ void e2_ric_control_procedure::operator()(coro_context<async_task<void>>& ctx)
   if (ric_ctrl_req.ric_ctrl_ack_request_present and ric_ctrl_req.ric_ctrl_ack_request) {
     e2_response = e2sm_iface->get_e2sm_packer().pack_ric_control_response(e2sm_response);
     if (e2_response.success) {
+      std::cout<<"[e2_ric_control_procedure.cpp] Success! Sending a response to the RIC"<<std::endl;
       send_e2_ric_control_acknowledge(e2_request, e2_response);
     } else {
+      std::cout<<"[e2_ric_control_procedure.cpp] Failure! Sending a RIC control Failure "<<std::endl;
       send_e2_ric_control_failure(e2_request, e2_response);
     }
   }

@@ -29,6 +29,7 @@
  #include "srsran/sdap/sdap_factory.h"
  #include "srsran/support/srsran_assert.h"
  #include <utility>
+ #include <iostream> // JUST FOR DEBUGGING
  
  using namespace srsran;
  using namespace srs_cu_up;
@@ -521,10 +522,14 @@
          pdcp_rx_ctrl.reestablish(sec_128);
        }
        // Change Marking Probability [NEW]
-       if (drb_to_mod.pdcp_cfg->marking_prob.has_value()) {
-         auto& pdcp_tx_ctrl=drb->pdcp->get_tx_upper_data_interface(); // <pdcp_tx_upper_data_interface>
-         pdcp_tx_ctrl.modify_marking_probability(drb_to_mod.pdcp_cfg->marking_prob.value());
-       }
+       if(drb_to_mod.pdcp_cfg->marking_prob>-1){
+        std::cout<<"[pdu_session_manager_impl.cpp]: Modifying marking probability = "<<drb_to_mod.pdcp_cfg->marking_prob<<std::endl;
+        auto& pdcp_tx_ecn=drb->pdcp->get_tx_upper_data_interface(); // <pdcp_tx_upper_data_interface>
+        pdcp_tx_ecn.modify_marking_probability(drb_to_mod.pdcp_cfg->marking_prob);
+      }
+     }
+     else{
+      std::cout<<"[pdu_session_manager_impl.cpp]: does not apply re-establishment at PDCP (pdcp_cfg has no value) "<<std::endl;
      }
  
      logger.log_info("Modified {}. {} f1u_teid={}", drb_to_mod.drb_id, session.pdu_session_id, drb->f1u_ul_teid);
