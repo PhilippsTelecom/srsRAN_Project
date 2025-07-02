@@ -29,12 +29,24 @@ namespace srsran {
 class rlc_tx_metrics_high_container
 {
   rlc_tx_metrics_higher metrics_hi = {};
+  // rlc_tx_metrics_state  metrics_state = {};
   bool                  enabled    = false;
 
 public:
   rlc_tx_metrics_high_container(bool enabled_) : enabled(enabled_) {}
 
   bool is_enabled() const { return enabled; }
+
+  void metrics_add_state(uint32_t bytes, uint32_t num_sdus)
+  {
+    if (not enabled) {
+      return;
+    }
+    // metrics_state.num_bytes = bytes;
+    // metrics_state.num_sdus  = num_sdus;
+    metrics_hi.queue_bytes = bytes;
+    metrics_hi.queue_sdus  = num_sdus;
+  }
 
   void metrics_add_sdus(uint32_t num_sdus, size_t num_sdu_bytes)
   {
@@ -51,6 +63,7 @@ public:
       return;
     }
     metrics_hi.num_dropped_sdus += num_sdus;
+    // TODO: Amir lost sdus number of bytes
   }
 
   void metrics_add_discard(uint32_t num_discarded_sdus)

@@ -36,6 +36,9 @@ struct rlc_tx_metrics_higher {
   uint32_t num_discarded_sdus;   ///< Number of discarded SDUs (instructed from higher layer)
   uint32_t num_discard_failures; ///< Number of failed SDU discards (instructed from higher layer)
 
+  uint32_t queue_bytes;
+  uint32_t queue_sdus;
+
   uint32_t counter = 0; ///< Counter of amount of times we collected metrics.
                         ///  Useful to aggregate high and low metrics.
 
@@ -53,8 +56,21 @@ struct rlc_tx_metrics_higher {
     num_dropped_sdus     = {};
     num_discarded_sdus   = {};
     num_discard_failures = {};
+    queue_bytes          = {};
+    queue_sdus           = {};
     // do not reset counter
   }
+};
+
+struct rlc_tx_metrics_state {
+  uint32_t num_sdus;
+  uint32_t num_bytes;
+
+  void reset()
+  {
+    num_sdus  = {};
+    num_bytes = {};
+  } 
 };
 
 struct rlc_tm_tx_metrics_lower {

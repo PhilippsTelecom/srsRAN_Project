@@ -114,11 +114,13 @@ private:
   metric_meas_getter_func_t get_drb_rlc_packet_drop_rate_dl;
   metric_meas_getter_func_t get_drb_rlc_sdu_transmitted_volume_dl;
   metric_meas_getter_func_t get_drb_rlc_sdu_transmitted_volume_ul;
+  metric_meas_getter_func_t get_drb_rlc_state;
   metric_meas_getter_func_t get_drb_dl_mean_throughput;
   metric_meas_getter_func_t get_drb_ul_mean_throughput;
   metric_meas_getter_func_t get_drb_dl_rlc_sdu_latency;
   metric_meas_getter_func_t get_drb_ul_rlc_sdu_latency;
   metric_meas_getter_func_t get_prach_cell_count;
+
 
   srslog::basic_logger&                              logger;
   srs_du::f1ap_ue_id_translator&                     f1ap_ue_id_provider;
@@ -128,7 +130,7 @@ private:
   unsigned                                           nof_ded_cell_preambles;
   std::vector<scheduler_ue_metrics>                  last_ue_metrics;
   std::map<uint16_t, std::deque<rlc_metrics>>        ue_aggr_rlc_metrics;
-  size_t                                             max_rlc_metrics = 1;
+  size_t                                             max_rlc_metrics = 200;
   std::map<std::string, e2sm_kpm_supported_metric_t> supported_metrics;
 };
 

@@ -28,6 +28,8 @@
 #include "srsran/rlc/rlc_entity.h"
 #include "srsran/rlc/rlc_rx.h"
 #include "srsran/rlc/rlc_tx.h"
+#include "srsran/srslog/logger.h"
+#include "srsran/srslog/srslog.h"
 #include "srsran/support/executors/task_executor.h"
 #include "srsran/support/timers.h"
 #include <memory>
