@@ -98,6 +98,7 @@ protected:
 
   // Measurement getter functions.
   metric_meas_getter_func_t get_pdcp_reordering_delay_ul;
+  metric_meas_getter_func_t get_pdcp_sent_bytes_dl;
 
   srslog::basic_logger& logger;
 

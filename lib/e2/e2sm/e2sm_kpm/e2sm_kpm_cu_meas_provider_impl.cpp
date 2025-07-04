@@ -115,6 +115,15 @@
      const asn1::e2sm::matching_cond_list_l& matching_cond_list,
      std::vector<asn1::e2sm::ue_id_c>&       ues)
  {
+  logger.debug("get_ues_matching_test_conditions called with {} matching conditions", matching_cond_list.size());
+    for (const auto& ue : ue_aggr_pdcp_metrics) {
+      ue_id_c        ueid;
+      ue_id_gnb_du_s ueid_gnb_du{};
+      ueid_gnb_du.gnb_cu_ue_f1ap_id = ue.first;
+      ueid_gnb_du.ran_ue_id_present = false;
+      ueid.set_gnb_du_ue_id()       = ueid_gnb_du;
+      ues.push_back(ueid);
+    }
    return true;
  }
  
@@ -122,6 +131,14 @@
      const asn1::e2sm::matching_ue_cond_per_sub_list_l& matching_ue_cond_list,
      std::vector<asn1::e2sm::ue_id_c>&                  ues)
  {
+    for (const auto& ue : ue_aggr_pdcp_metrics) {
+      ue_id_c        ueid;
+      ue_id_gnb_du_s ueid_gnb_du{};
+      ueid_gnb_du.gnb_cu_ue_f1ap_id = ue.first;
+      ueid_gnb_du.ran_ue_id_present = false;
+      ueid.set_gnb_du_ue_id()       = ueid_gnb_du;
+      ues.push_back(ueid);
+    }
    return true;
  }
  
@@ -174,7 +191,6 @@
  
  void e2sm_kpm_cu_meas_provider_impl::report_metrics(const pdcp_metrics_container& metrics)
  {
-   //printf("report pdcp metrics %d\n", metrics.rx.reordering_delay_us);
    ue_aggr_pdcp_metrics[metrics.ue_index].push_back(metrics);
    if (ue_aggr_pdcp_metrics[metrics.ue_index].size() > max_pdcp_metrics) {
      ue_aggr_pdcp_metrics[metrics.ue_index].pop_front();
@@ -187,6 +203,10 @@
        "DRB.PdcpReordDelayUl",
        e2sm_kpm_supported_metric_t{
            NO_LABEL, ALL_LEVELS, false, &e2sm_kpm_cu_up_meas_provider_impl::get_pdcp_reordering_delay_ul});
+  supported_metrics.emplace(
+    "DRB.PdcpTxBytes",
+    e2sm_kpm_supported_metric_t{
+      NO_LABEL, ALL_LEVELS, false, &e2sm_kpm_cu_up_meas_provider_impl::get_pdcp_sent_bytes_dl});
  }
  
  bool e2sm_kpm_cu_meas_provider_impl::get_pdcp_reordering_delay_ul(const asn1::e2sm::label_info_list_l label_info_list,
@@ -234,3 +254,55 @@
    }
    return meas_collected;
  }
+
+
+bool e2sm_kpm_cu_meas_provider_impl::get_pdcp_sent_bytes_dl(const asn1::e2sm::label_info_list_l label_info_list,
+                              const std::vector<asn1::e2sm::ue_id_c>& ues,
+                              const std::optional<asn1::e2sm::cgi_c> cell_global_id,
+                              std::vector<asn1::e2sm::meas_record_item_c>& items)
+{
+  bool meas_collected = false;
+  if (ue_aggr_pdcp_metrics.empty()) {
+    return handle_no_meas_data_available(ues, items, asn1::e2sm::meas_record_item_c::types::options::integer);
+  }
+  if ((label_info_list.size() > 1 or
+     (label_info_list.size() == 1 and not label_info_list[0].meas_label.no_label_present))) {
+  logger.debug("Metric: DRB.PdcpTxBytes supports only NO_LABEL label.");
+  return meas_collected;
+  }
+  if (ues.empty()) {
+    // E2 level measurements.
+    meas_record_item_c meas_record_item;
+    uint64_t total_sent_bytes = 0;
+    for (auto& pdcp_metric : ue_aggr_pdcp_metrics) {
+      uint64_t ue_sent_bytes = std::accumulate(
+        pdcp_metric.second.begin(),
+        pdcp_metric.second.end(),
+        0ULL,
+        [](uint64_t sum, const pdcp_metrics_container& metric) { return sum + metric.tx.num_pdu_bytes; });
+      total_sent_bytes += ue_sent_bytes;
+    }
+    meas_record_item.set_integer() = total_sent_bytes;
+    items.push_back(meas_record_item);
+    meas_collected = true;
+  }
+  else {
+    // Per-UE measurements.
+    for (const auto& ue : ues) {
+      meas_record_item_c meas_record_item;
+      uint64_t ue_sent_bytes = 0;
+
+
+      auto x = ue.gnb_du_ue_id().gnb_cu_ue_f1ap_id;
+
+      auto it = ue_aggr_pdcp_metrics.find(x);
+      if (it != ue_aggr_pdcp_metrics.end()) {
+        ue_sent_bytes = it->second.back().tx.num_pdu_bytes;
+      }
+      meas_record_item.set_integer() = ue_sent_bytes;
+      items.push_back(meas_record_item);
+      meas_collected = true;
+    }
+  }
+  return meas_collected;
+}
