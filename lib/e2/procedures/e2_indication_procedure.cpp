@@ -46,7 +46,6 @@ void e2_indication_procedure::operator()(coro_context<eager_async_task<void>>& c
                    subscription.request_id.ric_instance_id);
       break;
     }
-    logger.info("amir report_period: {}", subscription.report_period);
     transaction_sink.subscribe_to(
         *ev_mng.sub_del_reqs[{subscription.request_id.ric_requestor_id, subscription.request_id.ric_instance_id}].get(),
         (std::chrono::milliseconds)subscription.report_period);
@@ -75,7 +74,6 @@ void e2_indication_procedure::operator()(coro_context<eager_async_task<void>>& c
           action.report_service->collect_measurements();
           if (action.report_service->is_ind_msg_ready()) {
             // Get RIC indication msg content.
-            logger.info("amir Getting indication message");
             ind_msg_bytes = action.report_service->get_indication_message();
             ind_hdr_bytes = action.report_service->get_indication_header();
           } else {
