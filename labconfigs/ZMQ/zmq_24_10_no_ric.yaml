@@ -1,0 +1,89 @@
+cu_cp:
+  amf:
+    addr: 10.10.3.200
+    port: 38412
+    bind_addr: 10.10.3.231
+    sctp_nodelay: true
+
+    sctp_rto_initial: 120
+    sctp_rto_min: 120
+    sctp_rto_max: 500
+    no_core: false
+
+    supported_tracking_areas:
+      - tac: 1
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1
+                sd: 000001
+              - sst: 2
+                sd: 000002
+
+  inactivity_timer: 7200  
+
+ru_sdr:
+  device_driver: zmq
+  device_args: tx_port=tcp://127.0.0.1:2000,rx_port=tcp://127.0.0.1:2001,base_srate=23.04e6
+  srate: 23.04
+  tx_gain: 75
+  rx_gain: 75
+
+cell_cfg:
+  dl_arfcn: 368500
+  band: 3
+  channel_bandwidth_MHz: 10
+  common_scs: 15
+  plmn: "00101"
+  tac: 1                            
+  pdcch:
+    common:
+      ss0_index: 0                  
+      coreset0_index: 12
+    dedicated:
+      ss2_type: common              
+      dci_format_0_1_and_1_1: false 
+  prach:
+    prach_config_index: 1
+  # pdsch:
+  #   mcs_table: qam64
+  # pusch:
+  #   mcs_table: qam64
+
+
+  # slicing:                              
+  # -
+  #   sst: 1                                  
+  #   sd: 000001                         
+  #   sched_cfg:                        
+  #     min_prb_policy_ratio: 0        
+  #     max_prb_policy_ratio: 100
+  # -
+  #   sst: 2
+  #   sd: 000002                   
+  #   sched_cfg:
+  #     min_prb_policy_ratio: 0
+  #     max_prb_policy_ratio: 100
+
+log:
+  filename: /tmp/gnb.log
+  all_level: info
+  phy_level: warning
+  rlc_level: debug
+  sdap_level: debug
+  pdcp_level: debug
+  sec_level: warning
+  gtpu_level: info
+  hex_max_size: 0
+
+pcap:
+  mac_enable: false                
+  mac_filename: /tmp/gnb_mac.pcap  
+  ngap_enable: false               
+  ngap_filename: /tmp/gnb_ngap.pcap
+
+metrics:
+  addr: 127.0.0.1
+  port: 55555
+  rlc_json_enable: 1
+  rlc_report_period: 1000
