@@ -91,6 +91,21 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
   logger.log_info("RLC AM configured. {}", cfg);
 }
 
+void rlc_tx_am_entity::ip_to_string(uint8_t* ip) {
+    if (ip != nullptr)
+    {
+      char ip_str[INET_ADDRSTRLEN];
+      struct in_addr ip_addr;
+  
+      std::memcpy(&ip_addr, ip, 4);
+      if (inet_ntop(AF_INET, &ip_addr, ip_str, INET_ADDRSTRLEN) != nullptr) {
+        std::cout << "[rlc_tx_am_entity.cpp] IP address : " << ip_str << std::endl;
+      } else {
+        std::cout << "[rlc_tx_am_entity.cpp] Error converting IP address"<<std::endl;
+      }
+    }
+ }
+
 // TS 38.322 v16.2.0 Sec. 5.2.3.1
 void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
 {
@@ -100,6 +115,42 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
   sdu.buf     = std::move(sdu_buf);
   sdu.is_retx = is_retx;
   sdu.pdcp_sn = get_pdcp_sn(sdu.buf, cfg.pdcp_sn_len, rb_id.is_srb(), logger.get_basic_logger());
+
+
+  // PACKET MARKING: WE IGNORE SRBs  
+  if (!rb_id.is_srb()){ 
+    // CHECK SIZE PDCP HEADER (BYTES)
+    unsigned hdr_len = cfg.pdcp_sn_len == pdcp_sn_size::size12bits ? 2 : 3;
+
+    // WE LIMIT OURSELVES TO IPV4 PACKETS (Version)
+    uint8_t* version = sdu.buf.get_payload_( hdr_len + 4*0 , 1);
+    if (version != nullptr and *(version)>>4 == 4){
+
+      // WE JUST MARK L4S PACKETS
+      uint8_t* tos = sdu.buf.get_payload_( hdr_len + 4*0 + 1 , 1);
+      *tos = (*tos & 0x3); // last 2 bits
+      if(*tos == 1){ // ECT(1)
+        
+        // Test @IP1 (SRC)
+        uint8_t* ip1 = sdu.buf.get_payload_( hdr_len + 4*3 , 4);
+        ip_to_string(ip1);
+        free(ip1);
+        // Test @IP2 (DST)
+        uint8_t* ip2 = sdu.buf.get_payload_( hdr_len + 4*4, 4);
+        ip_to_string(ip2);
+        free(ip2);
+
+        // RETRIEVE RLC QUEUE SIZE
+        uint32_t nbBytes = sdu_queue.get_state().n_bytes;
+        std::cout<<"[rlc_tx_am_entity.cpp] Queue size = "<<nbBytes<<std::endl;
+
+        // TODO: COMPUTE MARKING PROBABILITY AND MARK PACKETS ACCORDINGLY
+      }
+      free(tos);
+    }
+    free(version);
+  }
+
 
   // Sanity check for PDCP ReTx in SRBs
   if (SRSRAN_UNLIKELY(rb_id.is_srb() && sdu.is_retx)) {

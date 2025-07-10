@@ -84,7 +84,7 @@ public:
 
   void on_new_message(const e2_message& msg) override
   {
-    // pack E2AP PDU into SCTP SDU.
+    // pack E2AP PDU into SCTP SDU: encapsulating
     byte_buffer   tx_sdu{byte_buffer::fallback_allocation_tag{}};
     asn1::bit_ref bref(tx_sdu);
     if (msg.pdu.pack(bref) != asn1::SRSASN_SUCCESS) {

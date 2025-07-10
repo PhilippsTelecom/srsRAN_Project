@@ -23,6 +23,8 @@
 #include "e2_subscription_manager_impl.h"
 #include "srsran/asn1/e2ap/e2ap.h"
 
+#include <iostream> // Just for debugging
+
 using namespace asn1::e2ap;
 using namespace srsran;
 
@@ -60,6 +62,7 @@ e2_subscription_manager_impl::handle_subscription_setup(const asn1::e2ap::ric_su
     event_trigger_def = e2sm->get_e2sm_packer().handle_packed_event_trigger_definition(
         msg->ric_sub_details.ric_event_trigger_definition);
     subscription.subscription_info.report_period = event_trigger_def.report_period;
+    std::cout<<"[e2_subscription_manager_impl.cpp]: handle_subscription_setup _ report_period = "<<subscription.subscription_info.report_period<<std::endl; 
     outcome.request_id.ric_requestor_id          = subscription.subscription_info.request_id.ric_requestor_id;
     outcome.request_id.ric_instance_id           = subscription.subscription_info.request_id.ric_instance_id;
     outcome.ran_function_id                      = subscription.subscription_info.ran_function_id;

@@ -236,15 +236,11 @@
    int random_number = dis(gen);
    if ( random_number < marking_prob )
    {
-    // Debugging: it seems that everything is marked
       std::cout<<"About randomness: random_number = "<< random_number <<" - marking_pro = "<< marking_prob << std::endl;
 
      // Check if IP4 packet (Version)
       uint8_t* version = buf.get_payload_(4*0,1);
       if (version != nullptr and *(version)>>4 == 4){
-        // Copy of the data: malloc
-        free(version);
-
         // Test @IP1
         uint8_t* ip1 = buf.get_payload_(4*3,4);
         ip_to_string(ip1);
@@ -274,9 +270,9 @@
           buf.set_payload_(4*2 + 2,*checksum);
           buf.set_payload_(4*2 + 3,*(checksum+1));          
 
-          // Free header
-          free(ip_header);
         }
+        // Free header
+        free(ip_header);
         /* 
          |-0--3-|-4--7-|-8--15-|-16-|-17-|-18-|-19--31-|
          =============================================== 
@@ -287,6 +283,7 @@
          |                 IP DEST                     | } 32 bits = 4 octets
         */ // IP HEADER
       }
+      free(version);
    }
 
 
@@ -907,6 +904,12 @@ if (cfg.discard_timer.has_value()) {
    // Add SN
    switch (cfg.sn_size) {
      case pdcp_sn_size::size12bits:
+     /*   |   |   |   |   |   |   |   |   | 
+          |D/C| R | R | R |      S-N      | Oct 1 
+          |             S-N               | } Oct 2
+       */
+     // `0x00000f00U` =  4 bits de poids fort 
+     // >>8U = enleve les 8 bits de poids faible = 1 octets `00`
        *hdr_writer |= (hdr.sn & 0x00000f00U) >> 8U;
        hdr_writer++;
        if (hdr_writer == buf.end()) {

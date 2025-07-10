@@ -34,6 +34,11 @@
 #include "fmt/format.h"
 #include <mutex>
 
+ #include <arpa/inet.h> // To print IP addresses: DEBUG
+ #include <string> // For std::string
+ #include <iostream> // To print some stuff: DEBUG
+ #include <random> // Pour tirage aleatoire
+
 namespace srsran {
 
 /// Container to hold a SDU for transmission, the progress in case of segmentation, and associated meta data
@@ -243,6 +248,9 @@ public:
   ///
   /// \return A copy of the internal state variables
   rlc_tx_am_state get_state() { return st; }
+
+  // MARKING FROM DU: TRY ACCESSING IP HEADER
+  void ip_to_string(uint8_t* ip);
 
 private:
   /// \brief Builds a new RLC PDU.

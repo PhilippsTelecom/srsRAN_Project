@@ -85,6 +85,7 @@ security_result security_engine_impl::encrypt_and_protect_integrity(byte_buffer 
   }
 
   // apply ciphering if activated
+  cipher_eng = nullptr; // WAY TO REMOVE CIPHERING
   if (cipher_eng != nullptr) {
     result = cipher_eng->apply_ciphering(std::move(result.buf.value()), offset, result.count);
   }

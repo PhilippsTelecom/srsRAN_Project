@@ -93,12 +93,12 @@ void e2_indication_procedure::operator()(coro_context<eager_async_task<void>>& c
         logger.error("Unable to resize byte_buffer, dropping indication");
         continue;
       }
-      std::copy(ind_msg_bytes.begin(), ind_msg_bytes.end(), e2_ind.indication->ric_ind_msg.begin());
+      std::copy(ind_msg_bytes.begin(), ind_msg_bytes.end(), e2_ind.indication->ric_ind_msg.begin()); // Copy ind_msg_bytes to ric_ind_msg
       if (!e2_ind.indication->ric_ind_hdr.resize(ind_hdr_bytes.length())) {
         logger.error("Unable to resize byte_buffer, dropping indication");
         continue;
       }
-      std::copy(ind_hdr_bytes.begin(), ind_hdr_bytes.end(), e2_ind.indication->ric_ind_hdr.begin());
+      std::copy(ind_hdr_bytes.begin(), ind_hdr_bytes.end(), e2_ind.indication->ric_ind_hdr.begin()); // Copy ind_hdr_bytes to ric_ind_hdr
       logger.info("Sending E2 indication");
       send_e2_indication(e2_ind);
     }
