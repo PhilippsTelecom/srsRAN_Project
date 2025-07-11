@@ -401,6 +401,7 @@ cell_metrics_handler::ue_metric_context::compute_report(std::chrono::millisecond
   scheduler_ue_metrics ret{};
   ret.pci              = pci;
   ret.rnti             = rnti;
+  ret.ue_index         = ue_index;
   ret.cqi_stats        = data.cqi;
   ret.dl_ri_stats      = data.dl_ri;
   uint8_t mcs          = data.nof_dl_cws > 0 ? std::roundf(static_cast<float>(data.dl_mcs) / data.nof_dl_cws) : 0;

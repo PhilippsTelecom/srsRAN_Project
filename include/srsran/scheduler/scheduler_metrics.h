@@ -23,6 +23,7 @@
 #pragma once
 
 #include "srsran/adt/span.h"
+#include "srsran/ran/du_types.h"
 #include "srsran/ran/pci.h"
 #include "srsran/ran/phy_time_unit.h"
 #include "srsran/ran/rnti.h"
@@ -37,6 +38,7 @@ namespace srsran {
 struct scheduler_ue_metrics {
   pci_t         pci;
   rnti_t        rnti;
+  du_ue_index_t ue_index;
   sch_mcs_index dl_mcs;
   unsigned      tot_dl_prbs_used;
   double        dl_brate_kbps;

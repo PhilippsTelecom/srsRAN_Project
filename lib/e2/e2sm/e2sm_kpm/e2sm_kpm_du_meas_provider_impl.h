@@ -122,6 +122,9 @@ private:
   metric_meas_getter_func_t get_prach_cell_count;
 
 
+  std::optional<scheduler_ue_metrics> get_relevant_last_ue_metrics(asn1::e2sm::ue_id_c ue);
+
+
   srslog::basic_logger&                              logger;
   srs_du::f1ap_ue_id_translator&                     f1ap_ue_id_provider;
   unsigned                                           nof_cell_prbs;

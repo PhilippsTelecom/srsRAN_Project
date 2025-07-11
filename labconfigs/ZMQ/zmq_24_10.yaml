@@ -29,43 +29,6 @@ ru_sdr:
   rx_gain: 75
 
 
-# cell_cfg:
-#   dl_arfcn: 368500
-#   band: 3
-#   channel_bandwidth_MHz: 20
-#   common_scs: 15
-#   plmn: "00101"
-#   tac: 1                            
-#   #   pdcch:
-#   #     common:
-#   #       ss0_index: 0                  
-#   #       coreset0_index: 12
-#   #     dedicated:
-#   #       ss2_type: common              
-#   #       dci_format_0_1_and_1_1: false 
-#   #   prach:
-#   #     prach_config_index: 1
-
-#   # pdsch:
-#   #   mcs_table: qam64
-#   # pusch:
-#   #   mcs_table: qam64
-
-
-#   slicing:                              
-#   -
-#     sst: 1                                  
-#     sd: 000001                         
-#     sched_cfg:                        
-#       min_prb_policy_ratio: 0        
-#       max_prb_policy_ratio: 50
-#   -
-#     sst: 2
-#     sd: 000002                   
-#     sched_cfg:
-#       min_prb_policy_ratio: 0
-#       max_prb_policy_ratio: 50
-
 
 cell_cfg:
   dl_arfcn: 368500
@@ -79,8 +42,14 @@ cell_cfg:
       ss0_index: 0
       coreset0_index: 6
     dedicated:
-      ss2_type: ue_dedicated
-      dci_format_0_1_and_1_1: true
+      ss2_type: common
+      dci_format_0_1_and_1_1: false
+
+  pdsch:
+    mcs_table: qam64
+  pusch:
+    mcs_table: qam64
+
   prach:
     prach_config_index: 1
     total_nof_ra_preambles: 64

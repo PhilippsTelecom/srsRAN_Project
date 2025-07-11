@@ -313,25 +313,46 @@ bool e2sm_kpm_du_meas_provider_impl::handle_no_meas_data_available(
   return false;
 }
 
+
+std::optional<scheduler_ue_metrics> e2sm_kpm_du_meas_provider_impl::get_relevant_last_ue_metrics(asn1::e2sm::ue_id_c ue) {
+  gnb_cu_ue_f1ap_id_t gnb_cu_ue_f1ap_id = int_to_gnb_cu_ue_f1ap_id(ue.gnb_du_ue_id().gnb_cu_ue_f1ap_id);
+  uint32_t            ue_idx            = f1ap_ue_id_provider.get_ue_index(gnb_cu_ue_f1ap_id);
+
+  meas_record_item_c meas_record_item;
+  for (auto metric : last_ue_metrics) {
+    if (metric.ue_index == ue_idx) {
+      return metric;
+    }
+  }
+  return std::nullopt;
+}
+
+
+
 bool e2sm_kpm_du_meas_provider_impl::get_cqi(const asn1::e2sm::label_info_list_l          label_info_list,
                                              const std::vector<asn1::e2sm::ue_id_c>&      ues,
                                              const std::optional<asn1::e2sm::cgi_c>       cell_global_id,
                                              std::vector<asn1::e2sm::meas_record_item_c>& items)
 {
-  bool meas_collected = false;
   if (last_ue_metrics.empty()) {
     return handle_no_meas_data_available(ues, items, asn1::e2sm::meas_record_item_c::types::options::integer);
   }
-  scheduler_ue_metrics ue_metrics = last_ue_metrics[0];
 
-  meas_record_item_c meas_record_item;
-  meas_record_item.set_integer() = ue_metrics.cqi_stats.get_nof_observations() > 0
-                                       ? static_cast<uint64_t>(std::roundf(ue_metrics.cqi_stats.get_mean()))
+  for (const auto& ue:ues) {
+    auto metric = get_relevant_last_ue_metrics(ue);
+    meas_record_item_c meas_record_item;
+
+    if (metric.has_value()) {
+      meas_record_item.set_real().value = metric->cqi_stats.get_nof_observations() > 0
+                                       ? metric->cqi_stats.get_mean()
                                        : 0;
-  items.push_back(meas_record_item);
-  meas_collected = true;
+    } else {
+      meas_record_item.set_no_value();
+    }
+    items.push_back(meas_record_item);
+  }
 
-  return meas_collected;
+  return true;
 }
 
 bool e2sm_kpm_du_meas_provider_impl::get_rsrp(const asn1::e2sm::label_info_list_l          label_info_list,
@@ -339,18 +360,23 @@ bool e2sm_kpm_du_meas_provider_impl::get_rsrp(const asn1::e2sm::label_info_list_
                                               const std::optional<asn1::e2sm::cgi_c>       cell_global_id,
                                               std::vector<asn1::e2sm::meas_record_item_c>& items)
 {
-  bool meas_collected = false;
   if (last_ue_metrics.empty()) {
     return handle_no_meas_data_available(ues, items, asn1::e2sm::meas_record_item_c::types::options::integer);
   }
-  scheduler_ue_metrics ue_metrics = last_ue_metrics[0];
 
-  meas_record_item_c meas_record_item;
-  meas_record_item.set_integer() = (int)ue_metrics.pusch_snr_db;
-  items.push_back(meas_record_item);
-  meas_collected = true;
+  for (const auto& ue:ues) {
+    auto metric = get_relevant_last_ue_metrics(ue);
+    meas_record_item_c meas_record_item;
 
-  return meas_collected;
+    if (metric.has_value()) {
+      meas_record_item.set_integer() = (int)metric->pusch_snr_db;
+    } else {
+      meas_record_item.set_no_value();
+    }
+    items.push_back(meas_record_item);
+  }
+
+  return true;
 }
 
 bool e2sm_kpm_du_meas_provider_impl::get_rsrq(const asn1::e2sm::label_info_list_l          label_info_list,
@@ -358,18 +384,23 @@ bool e2sm_kpm_du_meas_provider_impl::get_rsrq(const asn1::e2sm::label_info_list_
                                               const std::optional<asn1::e2sm::cgi_c>       cell_global_id,
                                               std::vector<asn1::e2sm::meas_record_item_c>& items)
 {
-  bool meas_collected = false;
   if (last_ue_metrics.empty()) {
     return handle_no_meas_data_available(ues, items, asn1::e2sm::meas_record_item_c::types::options::integer);
   }
-  scheduler_ue_metrics ue_metrics = last_ue_metrics[0];
 
-  meas_record_item_c meas_record_item;
-  meas_record_item.set_integer() = (int)ue_metrics.pusch_snr_db;
-  items.push_back(meas_record_item);
-  meas_collected = true;
+  for (const auto& ue:ues) {
+    auto metric = get_relevant_last_ue_metrics(ue);
+    meas_record_item_c meas_record_item;
 
-  return meas_collected;
+    if (metric.has_value()) {
+      meas_record_item.set_integer() = (int)metric->pusch_snr_db;
+    } else {
+      meas_record_item.set_no_value();
+    }
+    items.push_back(meas_record_item);
+  }
+
+  return true;
 }
 
 bool e2sm_kpm_du_meas_provider_impl::get_prb_avail_dl(const asn1::e2sm::label_info_list_l          label_info_list,
