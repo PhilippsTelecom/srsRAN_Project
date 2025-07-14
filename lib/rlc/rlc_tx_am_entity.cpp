@@ -224,6 +224,10 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
                     sdu.pdcp_sn,
                     sdu.is_retx,
                     sdu_queue.get_state());
+    auto x = sdu_queue.get_state();
+    uint32_t bytes = x.n_bytes;
+    uint32_t sdus = x.n_sdus;
+    metrics_high.metrics_add_state(bytes, sdus);
     metrics_high.metrics_add_sdus(1, sdu_length);
     handle_changed_buffer_state();
   } else {
