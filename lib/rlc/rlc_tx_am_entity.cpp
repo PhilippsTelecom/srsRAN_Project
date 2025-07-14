@@ -28,7 +28,6 @@
 #include "srsran/support/rtsan.h"
 #include "srsran/support/srsran_assert.h"
 #include "srsran/support/tracing/event_tracing.h"
-#include <cstdint>
 
 using namespace srsran;
 
@@ -68,7 +67,10 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
   is_poll_retransmit_timer_expired(false),
   pcell_executor(pcell_executor_),
   ue_executor(ue_executor_),
-  pcap_context(ue_index, rb_id_, config)
+  pcap_context(ue_index, rb_id_, config),
+  // Related to Randomnes
+  gen(rd()),
+  dis(0,100)
 {
   metrics_low.metrics_set_mode(rlc_mode::am);
 
@@ -107,6 +109,77 @@ void rlc_tx_am_entity::ip_to_string(uint8_t* ip) {
     }
  }
 
+  /// \brief Receives a modified IP header (ECN-CE marked)
+  /// Computes the checksum of this header
+  /// Returns the modified checksum made of 2 bytes (checksum on 2 bytes)
+  ///
+  /// \param data pointer towards the IP header
+  /// \param result table of 2 bytes, checksum put inside
+ void rlc_tx_am_entity::compute_checksum(uint8_t* data, uint8_t result[2])
+ {
+   uint32_t sum=0; 
+   // data equals to 4*5 bytes = 20 bytes
+   for (int i=0 ; i<10 ; i++){
+     // Concatenation
+     uint16_t word = (static_cast<uint16_t>(*(data+i*2)) << 8) | *(data+i*2+1);
+     sum+=word;
+     // Check if overflow
+     if (sum > 0xFFFF) {
+       sum = (sum & 0xFFFF) + (sum >> 16);
+      }
+    }
+      
+  uint16_t chksum;
+  chksum = ~sum;
+  // chksum as 2 distinct bytes
+  result[0]=(chksum >> 8) & 0xFF; // two strong bytes
+  result[1]=chksum & 0xFF; // two weak bytes
+ }
+
+  /// \brief Receives a SDU
+  /// Computes the marking probability based on the queue length
+  /// Marks the packet (ECN-CE) accordingly
+  ///
+  /// \param sdu data coming from the above layer (PDCP)
+  /// \param hdr_len size of the PDCP header
+ void rlc_tx_am_entity::handle_l4s_marking(rlc_sdu sdu, unsigned hdr_len ){
+
+    // RETRIEVE RLC QUEUE SIZE
+    uint32_t nbBytes = sdu_queue.get_state().n_bytes;
+    
+    // COMPUTE MARKING PROBABILITY
+    int marking_prob; 
+    if(nbBytes > MAX_THRESH_QUEUE) marking_prob = 100; 
+    else marking_prob = nbBytes < MIN_THRESH_QUEUE ? 0 : float(nbBytes - MIN_THRESH_QUEUE) / (MAX_THRESH_QUEUE - MIN_THRESH_QUEUE) * 100;
+    
+    // MARK PACKETS ACCORDINGLY
+    int random_number = dis(gen);
+    if ( random_number < marking_prob )
+    {
+      // Check if IPv4-header extracted successfully (5 lines = 5*4 bytes)
+      uint8_t* ip_header = sdu.buf.get_payload_(hdr_len + 0,4*5);
+      if (ip_header != nullptr){
+        // Set ECN-CE Flag (2nd byte)
+        *(ip_header+1) |= 0b00000011; 
+        sdu.buf.set_payload_(hdr_len + 1,*(ip_header+1));
+        
+        // Sets old checksum to 0 (11th & 12th byte)
+        *(ip_header + 4*2 + 2) &= 0b00000000;
+        *(ip_header + 4*2 + 3) &= 0b00000000;
+        
+        // Compute new Checksum
+        uint8_t checksum[2];
+        compute_checksum(ip_header,checksum);
+
+        // Modify checksum
+        sdu.buf.set_payload_(hdr_len + 4*2 + 2,*checksum);
+        sdu.buf.set_payload_(hdr_len + 4*2 + 3,*(checksum+1));          
+      }
+      // Free header
+      free(ip_header);
+    }
+ }
+
 // TS 38.322 v16.2.0 Sec. 5.2.3.1
 void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
 {
@@ -119,33 +192,16 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
 
 
   // PACKET MARKING: WE IGNORE SRBs  
-  if (!rb_id.is_srb()){ 
-    // CHECK SIZE PDCP HEADER (BYTES)
+  if (!rb_id.is_srb() and 0){ // AND '0': DO NOT EXECUTE THIS CODE
     unsigned hdr_len = cfg.pdcp_sn_len == pdcp_sn_size::size12bits ? 2 : 3;
-
-    // WE LIMIT OURSELVES TO IPV4 PACKETS (Version)
+    // WE LIMIT OURSELVES TO IPV4 PACKETS (Version 4)
     uint8_t* version = sdu.buf.get_payload_( hdr_len + 4*0 , 1);
     if (version != nullptr and *(version)>>4 == 4){
-
-      // WE JUST MARK L4S PACKETS
+      // WE LIMIT OURSELVES TO L4S PACKETS (ECT(1))
       uint8_t* tos = sdu.buf.get_payload_( hdr_len + 4*0 + 1 , 1);
       *tos = (*tos & 0x3); // last 2 bits
       if(*tos == 1){ // ECT(1)
-        
-        // Test @IP1 (SRC)
-        uint8_t* ip1 = sdu.buf.get_payload_( hdr_len + 4*3 , 4);
-        ip_to_string(ip1);
-        free(ip1);
-        // Test @IP2 (DST)
-        uint8_t* ip2 = sdu.buf.get_payload_( hdr_len + 4*4, 4);
-        ip_to_string(ip2);
-        free(ip2);
-
-        // RETRIEVE RLC QUEUE SIZE
-        uint32_t nbBytes = sdu_queue.get_state().n_bytes;
-        std::cout<<"[rlc_tx_am_entity.cpp] Queue size = "<<nbBytes<<std::endl;
-
-        // TODO: COMPUTE MARKING PROBABILITY AND MARK PACKETS ACCORDINGLY
+        handle_l4s_marking(sdu,hdr_len);
       }
       free(tos);
     }
@@ -168,12 +224,7 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
                     sdu.pdcp_sn,
                     sdu.is_retx,
                     sdu_queue.get_state());
-    auto x = sdu_queue.get_state();
-    uint32_t bytes = x.n_bytes;
-    uint32_t sdus = x.n_sdus;
     metrics_high.metrics_add_sdus(1, sdu_length);
-    // metrics_high.metrics_add_state(bytes, sdus);
-    metrics_high.metrics_add_state(bytes, sdus);
     handle_changed_buffer_state();
   } else {
     logger.log_warning("Dropped SDU. sdu_len={} pdcp_sn={} is_retx={} {}",

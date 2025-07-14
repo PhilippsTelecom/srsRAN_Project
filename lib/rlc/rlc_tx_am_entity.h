@@ -38,6 +38,8 @@
  #include <string> // For std::string
  #include <iostream> // To print some stuff: DEBUG
  #include <random> // Pour tirage aleatoire
+ #define MIN_THRESH_QUEUE 11250 // 30 Mb.s-1 * 3 ms = 11250 bytes 
+ #define MAX_THRESH_QUEUE 37500
 
 namespace srsran {
 
@@ -144,6 +146,11 @@ private:
 
   bool max_retx_reached = false;
 
+  // Related to Randomness
+   std::random_device                       rd;
+   std::mt19937                             gen;
+   std::uniform_int_distribution<int>       dis; // Random distribution
+
 public:
   rlc_tx_am_entity(gnb_du_id_t                          gnb_du_id,
                    du_ue_index_t                        ue_index,
@@ -249,8 +256,15 @@ public:
   /// \return A copy of the internal state variables
   rlc_tx_am_state get_state() { return st; }
 
-  // MARKING FROM DU: TRY ACCESSING IP HEADER
+
+  /// Displays an extracted IP address
   void ip_to_string(uint8_t* ip);
+
+  /// Computes the IP checksum
+  void compute_checksum(uint8_t* data, uint8_t result[2]);
+
+  // Computes the marking probability and marks packets accordingly
+  void handle_l4s_marking(rlc_sdu sdu, unsigned hdr_len);
 
 private:
   /// \brief Builds a new RLC PDU.
