@@ -42,8 +42,13 @@ cell_cfg:
       ss0_index: 0
       coreset0_index: 6
     dedicated:
-      ss2_type: ue_dedicated
-      dci_format_0_1_and_1_1: true
+      ss2_type: common
+      dci_format_0_1_and_1_1: false
+
+  pdsch:
+    mcs_table: qam64
+  pusch:
+    mcs_table: qam64
 
   prach:
     prach_config_index: 1
