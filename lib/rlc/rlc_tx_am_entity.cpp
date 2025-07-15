@@ -21,6 +21,7 @@
  */
 
 #include "rlc_tx_am_entity.h"
+#include "rlc_tx_entity.h"
 #include "srsran/adt/scope_exit.h"
 #include "srsran/instrumentation/traces/du_traces.h"
 #include "srsran/pdcp/pdcp_sn_util.h"
@@ -224,11 +225,8 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
                     sdu.pdcp_sn,
                     sdu.is_retx,
                     sdu_queue.get_state());
-    auto x = sdu_queue.get_state();
-    uint32_t bytes = x.n_bytes;
-    uint32_t sdus = x.n_sdus;
-    metrics_high.metrics_add_state(bytes, sdus);
     metrics_high.metrics_add_sdus(1, sdu_length);
+    update_queue_length_metrics();
     handle_changed_buffer_state();
   } else {
     logger.log_warning("Dropped SDU. sdu_len={} pdcp_sn={} is_retx={} {}",
@@ -238,6 +236,14 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
                        sdu_queue.get_state());
     metrics_high.metrics_add_lost_sdus(1);
   }
+}
+
+
+void rlc_tx_am_entity::update_queue_length_metrics() {
+    auto x = sdu_queue.get_state();
+    uint32_t bytes = x.n_bytes;
+    uint32_t sdus = x.n_sdus;
+    metrics_high.metrics_add_state(bytes, sdus);
 }
 
 // TS 38.322 v16.2.0 Sec. 5.4
@@ -292,6 +298,8 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
     }
     logger.log_info(rlc_pdu_buf.data(), pdu_len, "TX status PDU. pdu_len={} grant_len={}", pdu_len, grant_len);
 
+
+
     // Log state
     log_state(srslog::basic_levels::debug);
 
@@ -305,6 +313,7 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
           std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - pull_begin);
       metrics_low.metrics_add_pdu_latency_ns(pdu_latency.count());
     }
+    update_queue_length_metrics();
     return pdu_len;
   }
 
@@ -321,6 +330,7 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
           std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - pull_begin);
       metrics_low.metrics_add_pdu_latency_ns(pdu_latency.count());
     }
+    update_queue_length_metrics();
     return pdu_len;
   }
 
@@ -338,6 +348,7 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
 
   // Check whether there is something to TX
   if (sdu_queue.is_empty()) {
+    update_queue_length_metrics();
     logger.log_debug("SDU queue empty. grant_len={}", grant_len);
     return 0;
   }
@@ -349,6 +360,7 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - pull_begin);
     metrics_low.metrics_add_pdu_latency_ns(pdu_latency.count());
   }
+  update_queue_length_metrics();
   return pdu_len;
 }
 

@@ -183,6 +183,8 @@ public:
   void handle_sdu(byte_buffer sdu_buf, bool is_retx) override;
   void discard_sdu(uint32_t pdcp_sn) override;
 
+  void update_queue_length_metrics();
+
   // Interfaces for lower layers
   size_t pull_pdu(span<uint8_t> rlc_pdu_buf) override;
 
