@@ -193,7 +193,7 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
 
 
   // PACKET MARKING: WE IGNORE SRBs  
-  if (!rb_id.is_srb() and 0){ // AND '0': DO NOT EXECUTE THIS CODE
+  if (!rb_id.is_srb() and 0){ // AND '0': DO NOT EXECUTE THIS CODE / '1': EXECUTE THIS CODE
     unsigned hdr_len = cfg.pdcp_sn_len == pdcp_sn_size::size12bits ? 2 : 3;
     // WE LIMIT OURSELVES TO IPV4 PACKETS (Version 4)
     uint8_t* version = sdu.buf.get_payload_( hdr_len + 4*0 , 1);
@@ -225,6 +225,11 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
                     sdu.pdcp_sn,
                     sdu.is_retx,
                     sdu_queue.get_state());
+    // THAT HAS BEEN PUSHED
+    auto x = sdu_queue.get_state();
+    uint32_t bytes = x.n_bytes;
+    uint32_t sdus = x.n_sdus;
+    metrics_high.metrics_add_state(bytes, sdus);
     metrics_high.metrics_add_sdus(1, sdu_length);
     update_queue_length_metrics();
     handle_changed_buffer_state();
