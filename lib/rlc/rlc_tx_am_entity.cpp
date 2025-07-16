@@ -240,10 +240,15 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
 
 
 void rlc_tx_am_entity::update_queue_length_metrics() {
-    auto x = sdu_queue.get_state();
-    uint32_t bytes = x.n_bytes;
-    uint32_t sdus = x.n_sdus;
-    metrics_high.metrics_add_state(bytes, sdus);
+  auto x = sdu_queue.get_state();
+  uint32_t bytes = x.n_bytes;
+  uint32_t sdus = x.n_sdus;
+  metrics_high.metrics_add_state(bytes, sdus);
+
+  logger.log_debug("Updating queue length metrics. sdu_queue={} retx_queue={} tx_window={}",
+                sdu_queue.get_state(),
+                retx_queue.size(),
+                tx_window.size());
 }
 
 // TS 38.322 v16.2.0 Sec. 5.4

@@ -56,8 +56,6 @@ struct rlc_tx_metrics_higher {
     num_dropped_sdus     = {};
     num_discarded_sdus   = {};
     num_discard_failures = {};
-    queue_bytes          = {};
-    queue_sdus           = {};
     // do not reset counter
   }
 };
