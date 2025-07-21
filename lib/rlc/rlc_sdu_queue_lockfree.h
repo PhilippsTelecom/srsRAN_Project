@@ -268,7 +268,7 @@ public:
   /// \return Current state of the queue.
   state_t get_state() const
   {
-    uint64_t packed = state.load(std::memory_order_relaxed);
+    uint64_t packed = state.load(std::memory_order_acquire); // memory_order_relaxed
     state_t  result;
     result.n_bytes = packed & 0xffffffff;
     result.n_sdus  = packed >> 32;

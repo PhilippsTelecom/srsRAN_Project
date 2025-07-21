@@ -192,21 +192,28 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
   sdu.pdcp_sn = get_pdcp_sn(sdu.buf, cfg.pdcp_sn_len, rb_id.is_srb(), logger.get_basic_logger());
 
 
-  // PACKET MARKING: WE IGNORE SRBs  
-  if (!rb_id.is_srb() and 0){ // AND '0': DO NOT EXECUTE THIS CODE / '1': EXECUTE THIS CODE
-    unsigned hdr_len = cfg.pdcp_sn_len == pdcp_sn_size::size12bits ? 2 : 3;
-    // WE LIMIT OURSELVES TO IPV4 PACKETS (Version 4)
-    uint8_t* version = sdu.buf.get_payload_( hdr_len + 4*0 , 1);
-    if (version != nullptr and *(version)>>4 == 4){
-      // WE LIMIT OURSELVES TO L4S PACKETS (ECT(1))
-      uint8_t* tos = sdu.buf.get_payload_( hdr_len + 4*0 + 1 , 1);
-      *tos = (*tos & 0x3); // last 2 bits
-      if(*tos == 1){ // ECT(1)
-        handle_l4s_marking(sdu,hdr_len);
+  int DU_marking = 1;
+  // IF DU_MARKING AND IS_DRB
+  if (DU_marking and !rb_id.is_srb()){ 
+    auto now = std::chrono::steady_clock::now();
+    std::chrono::duration<double> diff = now - last_L4S_report;
+    
+    // IF UPDATE_PERIOD > 5ms 
+    if (diff > period){
+      unsigned hdr_len = cfg.pdcp_sn_len == pdcp_sn_size::size12bits ? 2 : 3;
+      // WE LIMIT OURSELVES TO IPV4 PACKETS (Version 4)
+      uint8_t* version = sdu.buf.get_payload_( hdr_len + 4*0 , 1);
+      if (version != nullptr and *(version)>>4 == 4){
+        // WE LIMIT OURSELVES TO L4S PACKETS (ECT(1))
+        uint8_t* tos = sdu.buf.get_payload_( hdr_len + 4*0 + 1 , 1);
+        *tos = (*tos & 0x3); // last 2 bits
+        if(*tos == 1){ // ECT(1)
+          handle_l4s_marking(sdu,hdr_len);
+        }
+        free(tos);
       }
-      free(tos);
+      free(version);
     }
-    free(version);
   }
 
 
@@ -226,11 +233,6 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
                     sdu.is_retx,
                     sdu_queue.get_state());
     // THAT HAS BEEN PUSHED
-    auto x = sdu_queue.get_state();
-    uint32_t bytes = x.n_bytes;
-    uint32_t sdus = x.n_sdus;
-    metrics_high.metrics_add_state(bytes, sdus);
-    metrics_high.metrics_add_sdus(1, sdu_length);
     update_queue_length_metrics();
     handle_changed_buffer_state();
   } else {

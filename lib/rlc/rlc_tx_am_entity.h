@@ -40,6 +40,7 @@
  #include <random> // Pour tirage aleatoire
  #define MIN_THRESH_QUEUE 11250 // 30 Mb.s-1 * 3 ms = 11250 bytes 
  #define MAX_THRESH_QUEUE 37500
+ #define L4S_UPDATE_PERIO 0.005
 
 namespace srsran {
 
@@ -147,9 +148,12 @@ private:
   bool max_retx_reached = false;
 
   // Related to Randomness
-   std::random_device                       rd;
-   std::mt19937                             gen;
-   std::uniform_int_distribution<int>       dis; // Random distribution
+   std::random_device                                 rd;
+   std::mt19937                                       gen;
+   std::uniform_int_distribution<int>                 dis; // Random distribution
+   // Related to L4S periodic updates
+   std::chrono::time_point<std::chrono::steady_clock> last_L4S_report = std::chrono::steady_clock::now();
+   std::chrono::duration<double>                      period          = std::chrono::duration<double>(L4S_UPDATE_PERIO);
 
 public:
   rlc_tx_am_entity(gnb_du_id_t                          gnb_du_id,
