@@ -33,7 +33,7 @@ srslog::basic_logger& rlc_factory_logger = srslog::fetch_basic_logger("RLC_Facto
 std::unique_ptr<rlc_entity> srsran::create_rlc_entity(const rlc_entity_creation_message& msg)
 {
   rlc_factory_logger.debug("Creating RLC entity for UE {}, RB {}, {}", int(msg.ue_index)
-    ,msg.rb_id.is_drb() ? int(msg.rb_id.get_drb_id()) : 100 + int(msg.rb_id.get_srb_id()),
+    ,msg.rb_id,
     fmt::format("RLC mode {}", msg.config.mode)
   );
 
