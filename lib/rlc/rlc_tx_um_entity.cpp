@@ -95,10 +95,21 @@ void rlc_tx_um_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
                     sdu_queue.get_state());
     metrics_high.metrics_add_sdus(1, sdu_length);
     handle_changed_buffer_state();
+    update_queue_length_metrics();
   } else {
     logger.log_info("Dropped SDU. sdu_len={} pdcp_sn={} {}", sdu_length, sdu_.pdcp_sn, sdu_queue.get_state());
     metrics_high.metrics_add_lost_sdus(1);
   }
+}
+
+void rlc_tx_um_entity::update_queue_length_metrics() {
+  auto x = sdu_queue.get_state();
+  uint32_t bytes = x.n_bytes;
+  uint32_t sdus = x.n_sdus;
+  metrics_high.metrics_add_state(bytes, sdus);
+
+  logger.log_debug("Updating queue length metrics. sdu_queue={}",
+                sdu_queue.get_state());
 }
 
 // TS 38.322 v16.2.0 Sec. 5.4
@@ -240,6 +251,7 @@ size_t rlc_tx_um_entity::pull_pdu(span<uint8_t> mac_sdu_buf)
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - pull_begin);
     metrics_low.metrics_add_pdu_latency_ns(pdu_latency.count());
   }
+  update_queue_length_metrics();
 
   return pdu_size;
 }

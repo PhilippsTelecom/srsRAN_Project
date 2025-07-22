@@ -133,6 +133,8 @@ private:
 
   void log_state(srslog::basic_levels level) { logger.log(level, "TX entity state. {} next_so={}", st, next_so); }
 
+  void update_queue_length_metrics();
+
   bool stopped = false;
 };
 
