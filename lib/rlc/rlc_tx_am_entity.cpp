@@ -68,10 +68,7 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
   is_poll_retransmit_timer_expired(false),
   pcell_executor(pcell_executor_),
   ue_executor(ue_executor_),
-  pcap_context(ue_index, rb_id_, config),
-  // Related to Randomnes
-  gen(rd()),
-  dis(0,100)
+  pcap_context(ue_index, rb_id_, config)
 {
   metrics_low.metrics_set_mode(rlc_mode::am);
 
@@ -92,23 +89,18 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
                               [this](timer_id_t tid) { on_expired_poll_retransmit_timer(); });
   }
 
+  // Checks if L4S MODE or NOT
+  const char* l4s_activated = getenv(L4S_ENV_PATH);
+  if(l4s_activated != nullptr && *l4s_activated=='1'){
+    std::cout<<"[!] AM entity: L4S mode enabled (ENV L4S = 1) "<<std::endl;
+    l4s.l4s_mode = 1;
+  }else{
+     std::cout<<"[!] AM entity: L4S mode NOT enabled (NO ENV L4S or ENV L4S !=1)"<<std::endl;
+  }
+	
+
   logger.log_info("RLC AM configured. {}", cfg);
 }
-
-void rlc_tx_am_entity::ip_to_string(uint8_t* ip) {
-    if (ip != nullptr)
-    {
-      char ip_str[INET_ADDRSTRLEN];
-      struct in_addr ip_addr;
-  
-      std::memcpy(&ip_addr, ip, 4);
-      if (inet_ntop(AF_INET, &ip_addr, ip_str, INET_ADDRSTRLEN) != nullptr) {
-        std::cout << "[rlc_tx_am_entity.cpp] IP address : " << ip_str << std::endl;
-      } else {
-        std::cout << "[rlc_tx_am_entity.cpp] Error converting IP address"<<std::endl;
-      }
-    }
- }
 
   /// \brief Receives a modified IP header (ECN-CE marked)
   /// Computes the checksum of this header
@@ -137,49 +129,50 @@ void rlc_tx_am_entity::ip_to_string(uint8_t* ip) {
   result[1]=chksum & 0xFF; // two weak bytes
  }
 
-  /// \brief Receives a SDU
-  /// Computes the marking probability based on the queue length
-  /// Marks the packet (ECN-CE) accordingly
-  ///
+  /// \brief Marks a packet (ECN-CE)
   /// \param sdu data coming from the above layer (PDCP)
   /// \param hdr_len size of the PDCP header
- void rlc_tx_am_entity::handle_l4s_marking(rlc_sdu sdu, unsigned hdr_len ){
+ void rlc_tx_am_entity::mark_l4s_packet(rlc_sdu sdu, unsigned hdr_len){
+    // Extracts IP Header (5 lines = 5*4 bytes)
+    uint8_t* ip_header = sdu.buf.get_payload_(hdr_len + 0,4*5);
+    if (ip_header != nullptr){
+      // Set ECN-CE Flag (2nd byte)
+      *(ip_header+1) |= 0b00000011; 
+      sdu.buf.set_payload_(hdr_len + 1,*(ip_header+1));
+            
+      // Sets old checksum to 0 (11th & 12th byte)
+      *(ip_header + 4*2 + 2) &= 0b00000000;
+      *(ip_header + 4*2 + 3) &= 0b00000000;
+            
+      // Compute new Checksum
+      uint8_t checksum[2];
+      compute_checksum(ip_header,checksum);
 
-    // RETRIEVE RLC QUEUE SIZE
-    uint32_t nbBytes = sdu_queue.get_state().n_bytes;
-    
-    // COMPUTE MARKING PROBABILITY
-    int marking_prob; 
-    if(nbBytes > MAX_THRESH_QUEUE) marking_prob = 100; 
-    else marking_prob = nbBytes < MIN_THRESH_QUEUE ? 0 : float(nbBytes - MIN_THRESH_QUEUE) / (MAX_THRESH_QUEUE - MIN_THRESH_QUEUE) * 100;
-    
-    // MARK PACKETS ACCORDINGLY
-    int random_number = dis(gen);
-    if ( random_number < marking_prob )
-    {
-      // Check if IPv4-header extracted successfully (5 lines = 5*4 bytes)
-      uint8_t* ip_header = sdu.buf.get_payload_(hdr_len + 0,4*5);
-      if (ip_header != nullptr){
-        // Set ECN-CE Flag (2nd byte)
-        *(ip_header+1) |= 0b00000011; 
-        sdu.buf.set_payload_(hdr_len + 1,*(ip_header+1));
-        
-        // Sets old checksum to 0 (11th & 12th byte)
-        *(ip_header + 4*2 + 2) &= 0b00000000;
-        *(ip_header + 4*2 + 3) &= 0b00000000;
-        
-        // Compute new Checksum
-        uint8_t checksum[2];
-        compute_checksum(ip_header,checksum);
-
-        // Modify checksum
-        sdu.buf.set_payload_(hdr_len + 4*2 + 2,*checksum);
-        sdu.buf.set_payload_(hdr_len + 4*2 + 3,*(checksum+1));          
-      }
-      // Free header
-      free(ip_header);
+      // Modify checksum
+      sdu.buf.set_payload_(hdr_len + 4*2 + 2,*checksum);
+      sdu.buf.set_payload_(hdr_len + 4*2 + 3,*(checksum+1));          
     }
- }
+    // Free header
+    free(ip_header);
+  }
+ 
+
+  /// @brief Updates the ECN-CE marking probability
+  /// \param time duration since last update
+  /// Updates the ECN-CE marking probability based on the estimation of the queueing time 
+  /// Re-initializes the counter 'bytesDrained'
+  void rlc_tx_am_entity::update_l4s_probability(double time){
+    uint32_t nbBytes  = sdu_queue.get_state().n_bytes;
+    size_t txBytes    = l4s.bytesDrained.exchange(0);
+    double rate       = static_cast<double> (txBytes) / time;
+    // COMPUTES DELAYS AND MARKING PROBABILITY
+    if(rate > 0){
+      double est_delay= static_cast<double>(static_cast<double>(nbBytes)/rate);
+      if(est_delay > MAX_DELAY_QUEUE) l4s.marking_prob = 100; 
+      else l4s.marking_prob = est_delay < MIN_DELAY_QUEUE ? 0 : float(est_delay - MIN_DELAY_QUEUE) / (MAX_DELAY_QUEUE - MIN_DELAY_QUEUE) * 100;
+    }
+  }
+
 
 // TS 38.322 v16.2.0 Sec. 5.2.3.1
 void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
@@ -191,29 +184,36 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
   sdu.is_retx = is_retx;
   sdu.pdcp_sn = get_pdcp_sn(sdu.buf, cfg.pdcp_sn_len, rb_id.is_srb(), logger.get_basic_logger());
 
-
-  int DU_marking = 1;
   // IF DU_MARKING AND IS_DRB
-  if (DU_marking and !rb_id.is_srb()){ 
-    auto now = std::chrono::steady_clock::now();
-    std::chrono::duration<double> diff = now - last_L4S_report;
+  if (l4s.l4s_mode and !rb_id.is_srb()){  
+    unsigned hdr_len  = cfg.pdcp_sn_len == pdcp_sn_size::size12bits ? 2 : 3;
+    uint8_t* version = sdu.buf.get_payload_( hdr_len + 4*0 , 1);
     
-    // IF UPDATE_PERIOD > 5ms 
-    if (diff > period){
-      unsigned hdr_len = cfg.pdcp_sn_len == pdcp_sn_size::size12bits ? 2 : 3;
-      // WE LIMIT OURSELVES TO IPV4 PACKETS (Version 4)
-      uint8_t* version = sdu.buf.get_payload_( hdr_len + 4*0 , 1);
-      if (version != nullptr and *(version)>>4 == 4){
-        // WE LIMIT OURSELVES TO L4S PACKETS (ECT(1))
-        uint8_t* tos = sdu.buf.get_payload_( hdr_len + 4*0 + 1 , 1);
-        *tos = (*tos & 0x3); // last 2 bits
-        if(*tos == 1){ // ECT(1)
-          handle_l4s_marking(sdu,hdr_len);
+    // WE LIMIT OURSELVES TO IPV4 PACKETS (Version 4)
+    if (version != nullptr and *(version)>>4 == 4){
+      uint8_t* tos = sdu.buf.get_payload_( hdr_len + 4*0 + 1 , 1);
+      *tos = (*tos & 0x3); // last 2 bits
+
+      // WE LIMIT OURSELVES TO L4S PACKETS (ECT(1))
+      if(*tos == 1){ 
+        // UPDATES MARKING PROB IF DURATION REACHED PERIOD
+        auto now                            = std::chrono::steady_clock::now();
+        std::chrono::duration<double> diff  = now - l4s.last_L4S_report;
+        double duration                     = std::chrono::duration<double>(diff).count();
+        if (duration > L4S_UPDATE_PERIO){
+          l4s.last_L4S_report   = now;
+          update_l4s_probability(duration);
         }
-        free(tos);
+        // CHECK IF HAS TO MARK PACKET
+        int random_number = l4s.dis(l4s.gen);
+        if ( random_number < l4s.marking_prob )
+        {
+          mark_l4s_packet(sdu,hdr_len);
+        }
       }
-      free(version);
+      free(tos);
     }
+    free(version);
   }
 
 
@@ -318,6 +318,9 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
     // Write PCAP
     pcap.push_pdu(pcap_context, rlc_pdu_buf.subspan(0, pdu_len));
 
+    // Update L4S counter
+    l4s.bytesDrained.fetch_add(pdu_len);
+
     // Update metrics
     metrics_low.metrics_add_ctrl_pdus(1, pdu_len);
     if (metrics_low.is_enabled()) {
@@ -351,6 +354,8 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
     if (tx_window.has_sn(sn_under_segmentation)) {
       size_t pdu_len = build_continued_sdu_segment(rlc_pdu_buf, tx_window[sn_under_segmentation]);
       pcap.push_pdu(pcap_context, rlc_pdu_buf.subspan(0, pdu_len));
+      // Update L4S counter
+      l4s.bytesDrained.fetch_add(pdu_len);
       return pdu_len;
     }
     logger.log_error("SDU under segmentation does not exist in tx_window. sn={}", sn_under_segmentation);
@@ -367,6 +372,8 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
 
   size_t pdu_len = build_new_pdu(rlc_pdu_buf);
   pcap.push_pdu(pcap_context, rlc_pdu_buf.subspan(0, pdu_len));
+  // Update L4S counter
+  l4s.bytesDrained.fetch_add(pdu_len);
   if (metrics_low.is_enabled()) {
     auto pdu_latency =
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - pull_begin);

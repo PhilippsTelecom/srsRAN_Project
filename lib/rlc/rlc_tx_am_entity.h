@@ -34,13 +34,14 @@
 #include "fmt/format.h"
 #include <mutex>
 
- #include <arpa/inet.h> // To print IP addresses: DEBUG
- #include <string> // For std::string
- #include <iostream> // To print some stuff: DEBUG
- #include <random> // Pour tirage aleatoire
- #define MIN_THRESH_QUEUE 11250 // 30 Mb.s-1 * 3 ms = 11250 bytes 
- #define MAX_THRESH_QUEUE 37500
- #define L4S_UPDATE_PERIO 0.005
+#include <arpa/inet.h> // To print IP addresses: DEBUG
+#include <string> // For std::string
+#include <iostream> // To print some stuff: DEBUG
+#include <random> // Pour tirage aleatoire
+#define L4S_ENV_PATH "L4S" // To check if L4S mode
+#define MIN_DELAY_QUEUE 0.005 // 5 ms 
+#define MAX_DELAY_QUEUE 0.01 // 10 ms
+#define L4S_UPDATE_PERIO 0.005 // marking probability update
 
 namespace srsran {
 
@@ -84,6 +85,32 @@ struct rlc_tx_am_state {
   /// transmitted.
   uint32_t byte_without_poll = 0;
 };
+
+
+/// \brief Structure storing L4S-related variables
+struct l4s_utils {
+  /// \brief Boolean to check if L4S is activated  
+  int                                               l4s_mode; 
+
+  /// \brief Current Marking Probability 
+  int marking_prob; 
+
+  /// \brief Used to compute the marking probability   
+  std::random_device                                 rd;
+  std::mt19937                                       gen;
+  std::uniform_int_distribution<int>                 dis; // Random distribution
+  
+  /// \brief Last time the probability has been updated
+  std::chrono::time_point<std::chrono::steady_clock> last_L4S_report;
+
+  /// \brief Used to compute total number of bytes drained by MAC layer (another thread)
+  std::atomic<size_t>                                bytesDrained;
+  
+  // Constructor: initializes everything
+  l4s_utils()
+    : l4s_mode(0),marking_prob(0),gen(rd()), dis(0,100), last_L4S_report(std::chrono::steady_clock::now()), bytesDrained(0) {}
+};
+
 
 class rlc_tx_am_entity : public rlc_tx_entity, public rlc_tx_am_status_handler, public rlc_tx_am_status_notifier
 {
@@ -146,14 +173,10 @@ private:
   bool stopped = false;
 
   bool max_retx_reached = false;
-
-  // Related to Randomness
-   std::random_device                                 rd;
-   std::mt19937                                       gen;
-   std::uniform_int_distribution<int>                 dis; // Random distribution
-   // Related to L4S periodic updates
-   std::chrono::time_point<std::chrono::steady_clock> last_L4S_report = std::chrono::steady_clock::now();
-   std::chrono::duration<double>                      period          = std::chrono::duration<double>(L4S_UPDATE_PERIO);
+  
+  // Holds all variables used to do L4S marking at the DU  
+  l4s_utils l4s; 
+  
 
 public:
   rlc_tx_am_entity(gnb_du_id_t                          gnb_du_id,
@@ -261,16 +284,6 @@ public:
   ///
   /// \return A copy of the internal state variables
   rlc_tx_am_state get_state() { return st; }
-
-
-  /// Displays an extracted IP address
-  void ip_to_string(uint8_t* ip);
-
-  /// Computes the IP checksum
-  void compute_checksum(uint8_t* data, uint8_t result[2]);
-
-  // Computes the marking probability and marks packets accordingly
-  void handle_l4s_marking(rlc_sdu sdu, unsigned hdr_len);
 
 private:
   /// \brief Builds a new RLC PDU.
@@ -386,6 +399,15 @@ private:
       logger.log(level, "TX entity state. {} sn_under_segmentation={}", st, sn_under_segmentation);
     }
   }
+
+  /// Re-computes the IP checksum
+  void compute_checksum(uint8_t* data, uint8_t result[2]);
+
+  // Marks a given packet (ECN-CE)
+  void mark_l4s_packet(rlc_sdu sdu, unsigned hdr_len);
+
+  // Updates the marking probability when necessary
+  void update_l4s_probability(double period); 
 };
 
 } // namespace srsran
