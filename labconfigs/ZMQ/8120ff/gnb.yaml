@@ -54,14 +54,14 @@ cell_cfg:
 
 log:
   filename: /tmp/gnb.log
-  all_level: warning
+  all_level: info
   # e2ap_level: info
 
   # fapi_level: warning
   # metrics_level: debug
   # mac_level: warning
   # gtpu_level: warning
-  # rlc_level: warning
+  rlc_level: debug
   # phy_level: warning
 
 

@@ -1,0 +1,44 @@
+cu_cp:
+  inactivity_timer: 7200  
+  amf:
+    no_core: false
+    addr: 10.10.3.200
+    port: 38412
+    bind_addr: 10.10.3.231
+    sctp_nodelay: true
+
+    sctp_rto_initial: 120
+    sctp_rto_min: 120
+    sctp_rto_max: 500
+
+    supported_tracking_areas:
+      - tac: 1
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1
+                sd: 000001
+              - sst: 2
+                sd: 000002
+    
+  f1ap:
+    bind_addr: 127.0.10.1
+
+cu_up:
+  f1u:
+    socket:
+      - 
+        bind_addr: 127.0.10.1
+
+log:
+  filename: /tmp/cu.log
+  all_level: warning
+
+e2:
+  enable_cu_cp_e2: false
+  enable_cu_up_e2: true
+  addr: 129.97.168.82
+  port: 36421
+  bind_addr: 129.97.168.82 
+  e2sm_kpm_enabled: true
+  e2sm_rc_enabled: true
