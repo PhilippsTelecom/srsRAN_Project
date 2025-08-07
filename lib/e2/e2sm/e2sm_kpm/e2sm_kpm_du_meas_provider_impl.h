@@ -115,8 +115,10 @@ private:
   metric_meas_getter_func_t get_drb_rlc_sdu_transmitted_volume_dl;
   metric_meas_getter_func_t get_drb_rlc_sdu_transmitted_volume_ul;
   metric_meas_getter_func_t get_drb_rlc_state;
+  metric_meas_getter_func_t get_drb_dl_grant_throughput; // bytes granted by MAC to DRB
   metric_meas_getter_func_t get_drb_dl_mean_throughput;
   metric_meas_getter_func_t get_drb_ul_mean_throughput;
+  metric_meas_getter_func_t get_drb_dl_rlc_sdu_last_latency; // mean queue delay on last report
   metric_meas_getter_func_t get_drb_dl_rlc_sdu_latency;
   metric_meas_getter_func_t get_drb_ul_rlc_sdu_latency;
   metric_meas_getter_func_t get_prach_cell_count;

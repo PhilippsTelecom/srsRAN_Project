@@ -111,6 +111,7 @@ struct rlc_tx_metrics_lower {
   uint32_t num_pdus_no_segmentation;      ///< Number of transmitted PDUs without segmentation
   size_t   num_pdu_bytes_no_segmentation; ///< Number of transmitted PDU bytes without segmentation
   uint32_t num_of_pulled_sdus;            ///< Number of pulled SDUs
+  uint32_t num_mac_bytes;                 ///< Number of bytes granted by MAC
   uint32_t sum_sdu_latency_us;            ///< total SDU latency (in us)>
   uint32_t sum_pdu_latency_ns;            ///< total PDU latency (in ns)>
 
@@ -147,6 +148,7 @@ struct rlc_tx_metrics_lower {
     num_pdus_no_segmentation      = {};
     num_pdu_bytes_no_segmentation = {};
     num_of_pulled_sdus            = {};
+    num_mac_bytes                 = {};
     sum_sdu_latency_us            = {};
     sum_pdu_latency_ns            = {};
     pdu_latency_hist_ns           = {};

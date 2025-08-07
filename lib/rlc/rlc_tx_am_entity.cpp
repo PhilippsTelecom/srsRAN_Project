@@ -160,11 +160,11 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
   /// @brief Updates the ECN-CE marking probability
   /// \param time duration since last update
   /// Updates the ECN-CE marking probability based on the estimation of the queueing time 
-  /// Re-initializes the counter 'bytesDrained'
+  /// Re-initializes the counter 'grantedBytes'
   void rlc_tx_am_entity::update_l4s_probability(double time){
     uint32_t nbBytes  = sdu_queue.get_state().n_bytes;
-    size_t txBytes    = l4s.bytesDrained.exchange(0);
-    double rate       = static_cast<double> (txBytes) / time;
+    size_t  gBytes    = l4s.grantedBytes.exchange(0);
+    double rate       = static_cast<double> (gBytes) / time;
     // COMPUTES DELAYS AND MARKING PROBABILITY
     if(rate > 0){
       double est_delay= static_cast<double>(static_cast<double>(nbBytes)/rate);
@@ -286,6 +286,11 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
 
   const size_t grant_len = rlc_pdu_buf.size();
   logger.log_debug("MAC opportunity. grant_len={} tx_window_size={}", grant_len, tx_window.size());
+  // To compute Real Throughput
+  l4s.grantedBytes.fetch_add(grant_len);
+  if (metrics_low.is_enabled()){
+    metrics_low.metrics_add_mac_granted(static_cast<uint32_t>(grant_len));
+  }
 
   // TX STATUS if requested
   if (status_provider->status_report_required()) {
@@ -317,9 +322,6 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
 
     // Write PCAP
     pcap.push_pdu(pcap_context, rlc_pdu_buf.subspan(0, pdu_len));
-
-    // Update L4S counter
-    l4s.bytesDrained.fetch_add(pdu_len);
 
     // Update metrics
     metrics_low.metrics_add_ctrl_pdus(1, pdu_len);
@@ -354,8 +356,6 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
     if (tx_window.has_sn(sn_under_segmentation)) {
       size_t pdu_len = build_continued_sdu_segment(rlc_pdu_buf, tx_window[sn_under_segmentation]);
       pcap.push_pdu(pcap_context, rlc_pdu_buf.subspan(0, pdu_len));
-      // Update L4S counter
-      l4s.bytesDrained.fetch_add(pdu_len);
       return pdu_len;
     }
     logger.log_error("SDU under segmentation does not exist in tx_window. sn={}", sn_under_segmentation);
@@ -372,8 +372,6 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
 
   size_t pdu_len = build_new_pdu(rlc_pdu_buf);
   pcap.push_pdu(pcap_context, rlc_pdu_buf.subspan(0, pdu_len));
-  // Update L4S counter
-  l4s.bytesDrained.fetch_add(pdu_len);
   if (metrics_low.is_enabled()) {
     auto pdu_latency =
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - pull_begin);

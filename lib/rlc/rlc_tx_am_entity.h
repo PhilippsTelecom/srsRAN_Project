@@ -104,11 +104,11 @@ struct l4s_utils {
   std::chrono::time_point<std::chrono::steady_clock> last_L4S_report;
 
   /// \brief Used to compute total number of bytes drained by MAC layer (another thread)
-  std::atomic<size_t>                                bytesDrained;
+  std::atomic<size_t>                                grantedBytes;
   
   // Constructor: initializes everything
   l4s_utils()
-    : l4s_mode(0),marking_prob(0),gen(rd()), dis(0,100), last_L4S_report(std::chrono::steady_clock::now()), bytesDrained(0) {}
+    : l4s_mode(0),marking_prob(0),gen(rd()), dis(0,100), last_L4S_report(std::chrono::steady_clock::now()), grantedBytes(0) {}
 };
 
 

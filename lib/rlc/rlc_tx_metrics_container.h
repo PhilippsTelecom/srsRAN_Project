@@ -131,6 +131,13 @@ public:
     metrics_lo.mode = mode;
   }
 
+  void metrics_add_mac_granted(uint32_t num_bytes){
+    if (not enabled) {
+      return;
+    }
+    metrics_lo.num_mac_bytes += num_bytes ;
+  }
+
   void metrics_add_pdus_no_segmentation(uint32_t num_pdus, size_t num_pdu_bytes)
   {
     if (not enabled) {

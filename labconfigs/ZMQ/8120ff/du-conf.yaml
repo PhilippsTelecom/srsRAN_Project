@@ -1,0 +1,78 @@
+# CONFIGURATION O-RAN CU/DU SPLIT
+f1ap:
+  cu_cp_addr: 127.0.10.2
+  bind_addr: 127.0.10.3
+
+f1u:
+  socket:
+    -
+      bind_addr: 127.0.10.3
+
+#nru:
+#  bind_addr: 127.0.10.3
+
+# CONFIGURATION O-RAN ZEROMQ-BASED SETUP
+ru_sdr:
+  device_driver: zmq
+  device_args: tx_port=tcp://0.0.0.0:2000,rx_port=tcp://127.0.0.1:2001,base_srate=11.52e6 # GNU RADIO / LOOPBACK
+  srate: 11.52
+  tx_gain: 75
+  rx_gain: 75
+
+cell_cfg:
+  dl_arfcn: 368500
+  band: 3
+  channel_bandwidth_MHz: 10
+  common_scs: 15
+  plmn: "00101"
+  tac: 1 # CHANGED TO NILOY'S CORE
+  pdcch:
+    common:
+      ss0_index: 0                  # Set search space zero index to match srsUE capabilities
+      coreset0_index: 6            # Set search CORESET Zero index to match srsUE capabilities
+    dedicated:
+      ss2_type: ue_dedicated              # Search Space type, has to be set to common
+      dci_format_0_1_and_1_1: true # Set correct DCI format (fallback)
+  prach:
+    prach_config_index: 1           # Sets PRACH config to match what is expected by srsUE
+    total_nof_ra_preambles: 64      # Sets number of available PRACH preambles
+    nof_ssb_per_ro: 1               # Sets the number of SSBs per RACH occasion.
+    nof_cb_preambles_per_ssb: 64    # Sets the number of contention based preambles per SSB.
+
+log:
+  filename: ./du.log
+  all_level: debug # warning
+
+e2:
+  enable_du_e2: true                   # Optional BOOLEAN (false). Enables the CU E2 agent for both CU-cp and CU-up. Supported: [false, true]. 
+  addr: 127.0.0.1 #129.97.168.65 # 10.0.2.10                       # Optional TEXT (127.0.0.1). Sets the RIC IP address. OLD  10.0.2.10 
+  port: 36421                           # Optional UINT (36421). Sets the RIC Port. Supported: [20000 - 40000].
+  bind_addr: 127.0.0.3 #129.97.168.65 #10.0.2.3                  # Optional TEXT (127.0.0.1). Sets the local IP address to bind for RIC connection. Supported: IPv4 address.
+  sctp_rto_initial: 120                 # Optional INT. Sets the initial retransmission timeout when creating the SCTP connection.
+  sctp_rto_min: 120                     # Optional INT. Sets the minimum retransmission timeout for the SCTP connection.
+  sctp_rto_max: 500                     # Optional INT. Sets the maximum retransmission timeout for the SCTP connection.
+  sctp_init_max_attempts: 3          # Optional INT. Sets the maximum retransmission attempts for the initial SCTP connection.
+  sctp_max_init_timeo: 500              # Optional INT. Sets the maximum retransmission timeout for the initial SCTP connection.
+  e2sm_kpm_enabled: true               # Optional BOOLEAN (false). Enabled the E2SM KPM service module. Supported: [false, true].
+  e2sm_rc_enabled: false                # Optional BOOLEAN (false). Enabled the E2SM RC service module. Supported: [false, true].
+
+pcap: 
+  rlc_filename: ./gnb_rlc.pcap
+  rlc_rb_type: drb
+  rlc_enable: true                    # Packet capture at RLC
+  f1u_filename: /tmp/gnb_f1u.pcap     # F1-U packet capture (between CU and DU)
+  f1u_enable: false
+  mac_filename: ./gnb_mac.pcap     # Packet capture at MAC
+  mac_type: udp
+  mac_enable: true
+
+metrics: 
+  enable_json_metrics: true
+  rlc_report_period: 10
+
+# metrics: 
+#   autostart_stdout_metrics: true  # Autostart stdout metrics reporting (needed to send KPMs)
+#   periodicity: 
+#     app_usage_report_period: 500  # Metrics periodicity configuration set to 500ms (initially 1s)
+#   layers: 
+#     enable_app_usage: true        # Enable application usage metrics  

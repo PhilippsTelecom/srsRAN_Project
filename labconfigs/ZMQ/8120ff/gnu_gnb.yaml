@@ -75,9 +75,9 @@ e2:
   enable_cu_cp_e2: false
   enable_cu_up_e2: true
 
-  addr: 129.97.168.82
+  addr: 129.97.168.65
   port: 36421
-  bind_addr: 129.97.168.82 
+  bind_addr: 129.97.168.65
   sctp_rto_initial: 120
   sctp_rto_min: 120
   sctp_rto_max: 500
