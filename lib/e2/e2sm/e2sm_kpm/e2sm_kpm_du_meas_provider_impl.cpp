@@ -1216,7 +1216,6 @@ bool e2sm_kpm_du_meas_provider_impl::get_drb_rlc_state(const asn1::e2sm::label_i
     }
     
     uint32_t bytes = ue_aggr_rlc_metrics[ue_idx].back().tx.tx_high.queue_bytes;
-    logger.info("amir DRB.RlcStateDL: bytes = {}, ue_index = {}", bytes, ue_idx);
     meas_record_item.set_integer() = bytes;
     items.push_back(meas_record_item);
   }
