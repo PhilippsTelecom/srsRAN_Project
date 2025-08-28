@@ -186,15 +186,12 @@ void e2_impl::handle_message(const e2_message& msg)
   switch (msg.pdu.type().value) {
     case asn1::e2ap::e2ap_pdu_c::types_opts::init_msg:
       handle_initiating_message(msg.pdu.init_msg());
-      std::cout<<"[e2_impl.cpp]: Initiating Message"<<std::endl;
       break;
     case asn1::e2ap::e2ap_pdu_c::types_opts::successful_outcome:
       handle_successful_outcome(msg.pdu.successful_outcome());
-      std::cout<<"[e2_impl.cpp]: Successful Outcome"<<std::endl;
       break;
     case asn1::e2ap::e2ap_pdu_c::types_opts::unsuccessful_outcome:
       handle_unsuccessful_outcome(msg.pdu.unsuccessful_outcome());
-      std::cout<<"[e2_impl.cpp]: Unsuccessful Outcome"<<std::endl;
       break;
     default:
       logger.error("Invalid E2 PDU type");

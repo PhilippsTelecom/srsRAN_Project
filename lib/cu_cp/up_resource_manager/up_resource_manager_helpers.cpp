@@ -232,7 +232,7 @@ bool srsran::srs_cu_cp::is_valid(const cu_cp_intra_drb_modification_request& pdu
     return false;
   }
 
-  std::cout<<"[up_resource_manager_helpers.cpp]: we found both the PDU session and the DRB ID: Good "<<std::endl;
+  logger.debug("We found both the PDU session ({}) and the DRB ID ({})",pdu.target_pdu_index,drb_id_to_uint(pdu.target_drb_index));
   return true;
 }
 

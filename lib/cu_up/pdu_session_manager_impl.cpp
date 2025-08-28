@@ -523,7 +523,7 @@
        }
        // Change Marking Probability [NEW]
        if(drb_to_mod.pdcp_cfg->marking_prob>-1){
-        std::cout<<"[pdu_session_manager_impl.cpp]: Modifying marking probability = "<<drb_to_mod.pdcp_cfg->marking_prob<<std::endl;
+        logger.log_debug("Modifying PDU session. New probability: {}",drb_to_mod.pdcp_cfg->marking_prob);
         auto& pdcp_tx_ecn=drb->pdcp->get_tx_upper_data_interface(); // <pdcp_tx_upper_data_interface>
         pdcp_tx_ecn.modify_marking_probability(drb_to_mod.pdcp_cfg->marking_prob);
       }

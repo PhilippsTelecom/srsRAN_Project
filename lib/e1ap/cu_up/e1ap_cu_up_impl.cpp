@@ -266,6 +266,7 @@ void e1ap_cu_up_impl::handle_bearer_context_modification_request(const asn1::e1a
 
   e1ap_ue_context& ue_ctxt = ue_ctxt_list[int_to_gnb_cu_up_ue_e1ap_id(msg->gnb_cu_up_ue_e1ap_id)];
 
+  logger.debug("E1AP CU-UP: handle bearer context modification request");
   cu_up_notifier.on_schedule_ue_async_task(
       ue_ctxt.ue_ids.ue_index,
       launch_async<bearer_context_modification_procedure>(ue_ctxt, msg, *pdu_notifier, cu_up_notifier));

@@ -96,6 +96,7 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
     l4s.l4s_mode = 1;
   }else{
      std::cout<<"[!] AM entity: L4S mode NOT enabled (NO ENV L4S or ENV L4S !=1)"<<std::endl;
+     l4s.l4s_mode = 0;
   }
 	
 
@@ -272,7 +273,7 @@ void rlc_tx_am_entity::discard_sdu(uint32_t pdcp_sn)
 }
 
 // TS 38.322 v16.2.0 Sec. 5.2.3.1
-size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLOCKING
+size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf,int first_pull) SRSRAN_RTSAN_NONBLOCKING
 {
   std::chrono::time_point<std::chrono::steady_clock> pull_begin;
   if (metrics_low.is_enabled()) {
@@ -286,13 +287,13 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf) SRSRAN_RTSAN_NONBLO
 
   const size_t grant_len = rlc_pdu_buf.size();
   logger.log_debug("MAC opportunity. grant_len={} tx_window_size={}", grant_len, tx_window.size());
-  // To compute Real Throughput
-  l4s.grantedBytes.fetch_add(grant_len);
-  if (metrics_low.is_enabled()){
-    metrics_low.metrics_add_mac_granted(static_cast<uint32_t>(grant_len));
+  // To avoir re-computing unused bytes
+  if (first_pull == 1){ 
+    if (l4s.l4s_mode) l4s.grantedBytes.fetch_add(grant_len); // Marking at DU
+    if (metrics_low.is_enabled()) metrics_low.metrics_add_mac_granted(static_cast<uint32_t>(grant_len));// For xApp
   }
 
-  // TX STATUS if requested
+  // TX STATUS if requested (Not DATA)
   if (status_provider->status_report_required()) {
     if (grant_len < rlc_am_nr_status_pdu_sizeof_header_ack_sn) {
       logger.log_debug("Cannot fit status PDU into small grant_len={}.", grant_len);

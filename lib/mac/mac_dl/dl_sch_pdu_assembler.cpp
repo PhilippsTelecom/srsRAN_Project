@@ -380,6 +380,7 @@ void dl_sch_pdu_assembler::assemble_sdus(dl_sch_pdu&           ue_pdu,
   const lcid_t        lcid   = lc_grant_info.lcid.to_lcid();
   mac_sdu_tx_builder* bearer = ue_mng.get_lc_sdu_builder(rnti, lcid);
   srsran_sanity_check(bearer != nullptr, "Scheduler is allocating inexistent bearers");
+  int first_pull              = 1; 
 
   const unsigned total_space =
       std::min(get_mac_sdu_required_bytes(lc_grant_info.sched_bytes), ue_pdu.nof_empty_bytes());
@@ -402,7 +403,8 @@ void dl_sch_pdu_assembler::assemble_sdus(dl_sch_pdu&           ue_pdu,
     }
 
     // Fetch MAC Tx SDU from upper layers and write inplace, into the buffer provided by the SDU encoder.
-    size_t sdu_actual_len = bearer->on_new_tx_sdu(sdu_enc.sdu_buffer());
+    size_t sdu_actual_len = bearer->on_new_tx_sdu(sdu_enc.sdu_buffer(),first_pull);
+    first_pull = 0; 
     if (sdu_actual_len == 0) {
       // The RLC Tx window is full or the RLC buffer is empty.
       logger.debug("ue={} rnti={} lcid={}: Unable to encode MAC SDU in MAC opportunity of size={}.",

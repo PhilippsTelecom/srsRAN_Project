@@ -76,7 +76,7 @@ public:
   void discard_sdu(uint32_t pdcp_sn) override;
 
   // Interfaces for lower layers
-  size_t           pull_pdu(span<uint8_t> rlc_pdu_buf) override;
+  size_t           pull_pdu(span<uint8_t> rlc_pdu_buf, int first_pull) override;
   rlc_buffer_state get_buffer_state() override;
 
 private:

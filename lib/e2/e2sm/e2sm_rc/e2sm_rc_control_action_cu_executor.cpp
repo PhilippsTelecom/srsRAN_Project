@@ -130,6 +130,9 @@
  { 
   // Parse RIC Message -> structure ctrl_config
    srs_cu_cp::cu_cp_intra_drb_modification_request ctrl_config = convert_to_cu_config_request(req);
+
+   // MARKING PROBABILITY IS 0 OR 100
+   logger.debug("RC Action 1-1: marking probability = {}",ctrl_config.marking_prob);
    
   // So far, 1 PDU session per UE
   ctrl_config.target_pdu_index = uint_to_pdu_session_id(1); // does not work with 0
@@ -214,6 +217,7 @@
    }
    // Retrieve Marking Probability : type INTEGER (1..32, ...)
    else if(action_params[ran_param_id] == "Marking Probability") {
+    logger.debug("CU action 1-1 executor: retrieving probability = {}",ran_p.ran_p_choice_elem_false().ran_param_value.value_int());
      ctrl_cfg.marking_prob = ran_p.ran_p_choice_elem_false().ran_param_value.value_int(); // int
    } 
    // Problem with current parameter

@@ -23,6 +23,7 @@
 #include "e2_ric_control_procedure.h"
 
 #include <iostream> // JUST FOR DEBUGGING
+#include "srsran/asn1/asn1_utils.h"
 
 using namespace srsran;
 using namespace asn1::e2ap;
@@ -66,10 +67,10 @@ void e2_ric_control_procedure::operator()(coro_context<async_task<void>>& ctx)
   if (ric_ctrl_req.ric_ctrl_ack_request_present and ric_ctrl_req.ric_ctrl_ack_request) {
     e2_response = e2sm_iface->get_e2sm_packer().pack_ric_control_response(e2sm_response);
     if (e2_response.success) {
-      std::cout<<"[e2_ric_control_procedure.cpp] Success! Sending a response to the RIC"<<std::endl;
+      logger.debug("Success read in E2 reponse");
       send_e2_ric_control_acknowledge(e2_request, e2_response);
     } else {
-      std::cout<<"[e2_ric_control_procedure.cpp] Failure! Sending a RIC control Failure "<<std::endl;
+      logger.debug("Failure read in E2 response");
       send_e2_ric_control_failure(e2_request, e2_response);
     }
   }

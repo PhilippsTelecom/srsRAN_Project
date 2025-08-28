@@ -213,7 +213,7 @@ public:
   void update_queue_length_metrics();
 
   // Interfaces for lower layers
-  size_t pull_pdu(span<uint8_t> rlc_pdu_buf) override;
+  size_t pull_pdu(span<uint8_t> rlc_pdu_buf, int first_pull) override;
 
   rlc_buffer_state get_buffer_state() override;
 

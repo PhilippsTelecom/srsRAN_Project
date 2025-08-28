@@ -27,6 +27,9 @@
  #include "srsran/support/resource_usage/scoped_resource_usage.h"
  #include "srsran/support/srsran_assert.h"
  #include <algorithm>
+
+ // DEBUG
+ #include <iostream> 
  
  using namespace srsran;
  
@@ -236,19 +239,19 @@
    int random_number = dis(gen);
    if ( random_number < marking_prob )
    {
-      std::cout<<"About randomness: random_number = "<< random_number <<" - marking_pro = "<< marking_prob << std::endl;
+      // std::cout<<"About randomness: random_number = "<< random_number <<" - marking_pro = "<< marking_prob << std::endl;
 
      // Check if IP4 packet (Version)
       uint8_t* version = buf.get_payload_(4*0,1);
       if (version != nullptr and *(version)>>4 == 4){
         // Test @IP1
-        uint8_t* ip1 = buf.get_payload_(4*3,4);
-        ip_to_string(ip1);
-        free(ip1);
+        //uint8_t* ip1 = buf.get_payload_(4*3,4);
+        //ip_to_string(ip1);
+        //free(ip1);
         // Test @IP2
-        uint8_t* ip2 = buf.get_payload_(4*4,4);
-        ip_to_string(ip2);
-        free(ip2);
+        //uint8_t* ip2 = buf.get_payload_(4*4,4);
+        //ip_to_string(ip2);
+        //free(ip2);
   
 
         // Check if IPv4-header extracted successfully (5 lines = 5*4 bytes)

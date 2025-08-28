@@ -128,6 +128,8 @@ async_task<e1ap_bearer_context_modification_response>
 cu_up_manager_impl::handle_bearer_context_modification_request(const e1ap_bearer_context_modification_request& msg)
 {
   ue_context* ue_ctxt = ue_mng->find_ue(msg.ue_index);
+  logger.debug("CU-UP Manager: handle bearer context modification request");
+
   if (ue_ctxt == nullptr) {
     logger.error("Could not find UE context");
     return launch_async([](coro_context<async_task<e1ap_bearer_context_modification_response>>& ctx) {

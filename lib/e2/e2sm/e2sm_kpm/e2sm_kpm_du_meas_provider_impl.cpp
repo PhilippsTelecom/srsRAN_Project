@@ -88,6 +88,10 @@ e2sm_kpm_du_meas_provider_impl::e2sm_kpm_du_meas_provider_impl(srs_du::f1ap_ue_i
       e2sm_kpm_supported_metric_t{
           NO_LABEL, E2_NODE_LEVEL | UE_LEVEL, true, &e2sm_kpm_du_meas_provider_impl::get_drb_dl_mean_throughput});
   supported_metrics.emplace(
+      "DRB.LastUEThpDl",
+      e2sm_kpm_supported_metric_t{
+          NO_LABEL, E2_NODE_LEVEL | UE_LEVEL, true, &e2sm_kpm_du_meas_provider_impl::get_drb_dl_last_mean_throughput});
+  supported_metrics.emplace(
       "DRB.UEThpUl",
       e2sm_kpm_supported_metric_t{
           NO_LABEL, E2_NODE_LEVEL | UE_LEVEL, true, &e2sm_kpm_du_meas_provider_impl::get_drb_ul_mean_throughput});
@@ -759,6 +763,71 @@ bool e2sm_kpm_du_meas_provider_impl::get_drb_dl_mean_throughput(const asn1::e2sm
           return sum + metric.tx.tx_low.num_pdu_bytes_no_segmentation;
         });
     num_pdu_bytes_no_segmentation /= ue.second.size();
+    seconds = (float)std::chrono::duration_cast<std::chrono::milliseconds>(ue.second.back().metrics_period).count() /
+              (float)1000;
+    ue_throughput[ue.first] = bytes_to_kbits(num_pdu_bytes_no_segmentation + num_pdu_bytes_with_segmentation) / seconds;
+  }
+  if (ues.empty()) {
+    meas_record_item_c meas_record_item;
+    int                total_throughput = 0;
+    for (auto& ue : ue_throughput) {
+      total_throughput += ue.second;
+    }
+    meas_record_item.set_real().value = total_throughput;
+    items.push_back(meas_record_item);
+    meas_collected = true;
+  }
+
+  for (auto& ue : ues) {
+    meas_record_item_c  meas_record_item;
+    gnb_cu_ue_f1ap_id_t gnb_cu_ue_f1ap_id = int_to_gnb_cu_ue_f1ap_id(ue.gnb_du_ue_id().gnb_cu_ue_f1ap_id);
+    uint32_t            ue_idx            = f1ap_ue_id_provider.get_ue_index(gnb_cu_ue_f1ap_id);
+    if (ue_throughput.count(ue_idx) == 0) {
+      meas_record_item.set_no_value();
+      items.push_back(meas_record_item);
+      meas_collected = true;
+      continue;
+    }
+    meas_record_item.set_real().value = ue_throughput[ue_idx];
+    items.push_back(meas_record_item);
+    meas_collected = true;
+  }
+  return meas_collected;
+}
+
+bool e2sm_kpm_du_meas_provider_impl::get_drb_dl_last_mean_throughput(const asn1::e2sm::label_info_list_l     label_info_list,
+                                                                const std::vector<asn1::e2sm::ue_id_c>& ues,
+                                                                const std::optional<asn1::e2sm::cgi_c>  cell_global_id,
+                                                                std::vector<asn1::e2sm::meas_record_item_c>& items)
+{
+  bool meas_collected = false;
+  if (ue_aggr_rlc_metrics.empty()) {
+    return handle_no_meas_data_available(ues, items, asn1::e2sm::meas_record_item_c::types::options::real);
+  }
+  if ((label_info_list.size() > 1 or
+       (label_info_list.size() == 1 and not label_info_list[0].meas_label.no_label_present))) {
+    logger.debug("Metric: DRB.UEThpDl supports only NO_LABEL label.");
+    return meas_collected;
+  }
+  double                       seconds = 1;
+  std::map<uint16_t, unsigned> ue_throughput;
+  for (auto& ue : ue_aggr_rlc_metrics) {
+    size_t num_pdu_bytes_with_segmentation;
+    switch (ue.second.front().tx.tx_low.mode) {
+      case rlc_mode::um_bidir:
+      case rlc_mode::um_unidir_dl:
+        // Bytes with segmentation over last window
+        num_pdu_bytes_with_segmentation = ue.second.back().tx.tx_low.mode_specific.um.num_pdu_bytes_with_segmentation;
+        break;
+      case rlc_mode::am:
+      // Bytes with segmentation over last window
+        num_pdu_bytes_with_segmentation = ue.second.back().tx.tx_low.mode_specific.am.num_pdu_bytes_with_segmentation;
+        break;
+      default:
+        num_pdu_bytes_with_segmentation = 0;
+    }
+    // Bytes without segmentation
+    auto num_pdu_bytes_no_segmentation = ue.second.back().tx.tx_low.num_pdu_bytes_no_segmentation;
     seconds = (float)std::chrono::duration_cast<std::chrono::milliseconds>(ue.second.back().metrics_period).count() /
               (float)1000;
     ue_throughput[ue.first] = bytes_to_kbits(num_pdu_bytes_no_segmentation + num_pdu_bytes_with_segmentation) / seconds;

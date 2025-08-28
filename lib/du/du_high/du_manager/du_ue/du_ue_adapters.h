@@ -295,10 +295,10 @@ public:
 
   void disconnect() { connected = false; }
 
-  size_t on_new_tx_sdu(span<uint8_t> mac_sdu_buf) override
+  size_t on_new_tx_sdu(span<uint8_t> mac_sdu_buf, int first_pull) override
   {
     srsran_assert(rlc_handler != nullptr, "MAC Rx SDU notifier is disconnected");
-    return SRSRAN_LIKELY(connected.load(std::memory_order_relaxed)) ? rlc_handler->pull_pdu(mac_sdu_buf) : 0;
+    return SRSRAN_LIKELY(connected.load(std::memory_order_relaxed)) ? rlc_handler->pull_pdu(mac_sdu_buf,first_pull) : 0;
   }
 
   rlc_buffer_state on_buffer_state_update() override

@@ -55,6 +55,7 @@ public:
                      fmt::underlying(msg.ue_index));
       return {}; // return failure to modify bearer context
     }
+    logger.debug("E1AP CU UP adapter: received context modification request");
     return cu_up_handler->handle_bearer_context_modification_request(msg);
   }
 

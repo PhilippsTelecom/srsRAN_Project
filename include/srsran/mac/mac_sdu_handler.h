@@ -25,8 +25,9 @@ public:
 
   /// Called by MAC to generate an MAC Tx SDU for the respective logical channel.
   /// \param mac_sdu_space The buffer of bytes where the MAC SDU payload will be written.
+  /// \param first_pull mac_sdu_space is the txop granted to the DRB at first pull
   /// \return Generated MAC SDU size.
-  virtual size_t on_new_tx_sdu(span<uint8_t> mac_sdu_space) = 0;
+  virtual size_t on_new_tx_sdu(span<uint8_t> mac_sdu_space, int first_pull) = 0;
 
   /// Called by MAC to obtain the DL BSR for the respective logical channel.
   virtual rlc_buffer_state on_buffer_state_update() = 0;
