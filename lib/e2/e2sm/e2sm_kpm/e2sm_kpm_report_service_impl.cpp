@@ -144,8 +144,10 @@ void e2sm_kpm_report_service_style1::clear_collect_measurements()
 bool e2sm_kpm_report_service_style1::collect_measurements()
 {
   // Set the granularity period.
-  ric_ind_message.granul_period_present = true;
-  ric_ind_message.granul_period         = granul_period;
+
+  // amir: see https://github.com/srsran/srsRAN_Project/discussions/567
+  ric_ind_message.granul_period_present = false;
+  // ric_ind_message.granul_period         = granul_period;
 
   // Fill indication msg.
   std::vector<meas_record_item_c> meas_records_items;
