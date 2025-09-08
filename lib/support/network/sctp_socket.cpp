@@ -155,6 +155,21 @@ bool sctp_set_nodelay(const unique_fd& fd, std::optional<bool> nodelay)
   return ::setsockopt(fd.value(), IPPROTO_SCTP, SCTP_NODELAY, &optval, sizeof(optval)) == 0;
 }
 
+/// Modifies the parameters related to ACKs. Delayed ACKs can cause bundling to the E2SM-RC messages. 
+bool sctp_set_nodelay_ack(const unique_fd& fd, std::optional<bool> nodelayack){
+
+  if (not nodelayack.has_value()) {
+    // no need to change anything
+    return true;
+  }
+
+  sctp_sack_info sack; 
+  sack.sack_assoc_id  = 0; 
+  sack.sack_delay     = 0;
+  sack.sack_freq      = 2; 
+  return ::setsockopt(fd.value(), IPPROTO_SCTP, SCTP_DELAYED_SACK, &sack, sizeof(sack)) == 0;
+}
+
 } // namespace
 
 // sctp_socket class.
@@ -326,6 +341,13 @@ bool sctp_socket::set_sockopts(const sctp_socket_params& params)
   if (not sctp_set_nodelay(sock_fd, params.nodelay)) {
     logger.error(
         "{}: Could not set SCTP_NODELAY. optval={} error={}", if_name, params.nodelay.value() ? 1 : 0, strerror(errno));
+    return false;
+  }
+
+  // PHILIPPE: STOP DELAYING ACKS
+  if (not sctp_set_nodelay_ack(sock_fd, params.nodelayack)) {
+    logger.error(
+        "{}: Could not set SCTP_DELAYED_ACK. error={}", if_name, strerror(errno));
     return false;
   }
 

@@ -213,7 +213,7 @@
      }
 
      // Everything is OKAY: edit structure to send back to E2 agent
-     std::cout<<"[pdu_session_drb_ecn_modification_routine.cpp]: setting success in response message"<<std::endl;
+     // std::cout<<"[pdu_session_drb_ecn_modification_routine.cpp]: setting success in response message"<<std::endl;
      response_msg.success = true;
    }
  

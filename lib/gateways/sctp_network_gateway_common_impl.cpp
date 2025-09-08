@@ -99,7 +99,11 @@ expected<sctp_socket> sctp_network_gateway_common_impl::create_socket(int ai_fam
   params.init_max_attempts = node_cfg.init_max_attempts;
   params.max_init_timeo    = node_cfg.max_init_timeo;
   params.nodelay           = node_cfg.nodelay;
-  params.nodelay = true;
+  // DISABLE NAGEL ALGORITHM: NO BUNDLING
+  params.nodelay            = true; 
+  // STOP DELAYING ACKS: AVOID BUNDLING FOR E2SM-RC MESSAGES
+  params.nodelayack         = true; 
+  // RETURNS
   return sctp_socket::create(params);
 }
 

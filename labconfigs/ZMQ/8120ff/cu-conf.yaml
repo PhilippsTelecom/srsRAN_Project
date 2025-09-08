@@ -1,5 +1,6 @@
 ran_node_name: cu_cp_01             # Optional TEXT (cu_cp_01). Sets the text ID associated with the gNB. Format: string without spaces.
 gnb_id: 411 
+gnb_cu_up_id: 2 
 
 cu_cp:
   amf:
