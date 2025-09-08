@@ -166,7 +166,7 @@ bool sctp_set_nodelay_ack(const unique_fd& fd, std::optional<bool> nodelayack){
   sctp_sack_info sack; 
   sack.sack_assoc_id  = 0; 
   sack.sack_delay     = 0;
-  sack.sack_freq      = 2; 
+  sack.sack_freq      = 1; 
   return ::setsockopt(fd.value(), IPPROTO_SCTP, SCTP_DELAYED_SACK, &sack, sizeof(sack)) == 0;
 }
 
