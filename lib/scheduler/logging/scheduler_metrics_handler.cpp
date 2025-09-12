@@ -197,7 +197,7 @@ void cell_metrics_handler::handle_uci_pdu_indication(const uci_indication::uci_p
       }
 
       if (f2f3f4->csi.has_value()) {
-        if (f2f3f4->csi->valid) {
+        if (f2f3f4->csi->valid and not cell_cfg.expert_cfg.ue.cqi_tracing_enabled) {
           handle_csi_report(u, f2f3f4->csi.value());
         } else {
           ++u.data.nof_pucch_f2f3f4_invalid_csis;
@@ -217,7 +217,7 @@ void cell_metrics_handler::handle_uci_pdu_indication(const uci_indication::uci_p
       const auto& pusch = std::get<uci_indication::uci_pdu::uci_pusch_pdu>(pdu.pdu);
 
       if (pusch.csi.has_value()) {
-        if (pusch.csi->valid) {
+        if (pusch.csi->valid and not cell_cfg.expert_cfg.ue.cqi_tracing_enabled) {
           handle_csi_report(u, pusch.csi.value());
         } else {
           ++u.data.nof_pusch_invalid_csis;

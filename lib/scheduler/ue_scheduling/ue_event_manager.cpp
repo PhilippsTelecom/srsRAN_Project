@@ -27,6 +27,7 @@
 #include "../support/sr_helper.h"
 #include "../uci_scheduling/uci_scheduler_impl.h"
 #include "srsran/support/memory_pool/unbounded_object_pool.h"
+#include <fstream>
 
 using namespace srsran;
 
@@ -207,14 +208,68 @@ private:
 static constexpr size_t COMMON_EVENT_LIST_SIZE = MAX_NOF_DU_UES * 2;
 static constexpr size_t CELL_EVENT_LIST_SIZE   = MAX_NOF_DU_UES * 2;
 
-ue_event_manager::ue_event_manager(ue_repository& ue_db_) :
+ue_event_manager::ue_event_manager(ue_repository& ue_db_, const scheduler_ue_expert_config& expert_cfg_) :
   ue_db(ue_db_),
+  expert_cfg(expert_cfg_),
   logger(srslog::fetch_basic_logger("SCHED")),
   ind_pdu_pool(std::make_unique<pdu_indication_pool>()),
   common_events(COMMON_EVENT_LIST_SIZE),
   dl_bo_mng(std::make_unique<ue_dl_buffer_occupancy_manager>(*this))
 {
+  if (expert_cfg.cqi_tracing_enabled) {
+    cqi_tracing_enabled = true;
+    read_cqi_trace(expert_cfg.cqi_trace_filename);
+  }
 }
+
+void ue_event_manager::read_cqi_trace(const std::string& cqi_trace_filename) {
+  std::ifstream file(cqi_trace_filename);
+  logger.info("Reading CQI trace file: {}", cqi_trace_filename);
+  if (not file.good()) {
+    logger.error("Failed to open CQI trace file: {}", cqi_trace_filename);
+    return;
+  }
+  std::string line;
+  while (std::getline(file, line)) {
+    try {
+      int cqi_val = std::stoi(line);
+      cqi_trace.push_back(static_cast<uint8_t>(cqi_val));
+    } catch (const std::exception&) {
+      logger.warning("Invalid CQI value in trace file: '{}'", line);
+    }
+  }
+  if (file.eof()) {
+    logger.error("Successfully read CQI trace file: {}", cqi_trace_filename);
+  } else {
+    logger.error("Error reading CQI trace file: {}", cqi_trace_filename);
+  }
+}
+
+uint8_t ue_event_manager::get_next_cqi_from_trace(slot_point sl) {
+  if (first_time) {
+    cqi_last_sl = sl;
+    first_time = false; 
+    return 15;
+  }
+  uint32_t forward_steps;
+  if (sl.to_uint() >= cqi_last_sl.to_uint()) {
+    forward_steps = sl.to_uint() - cqi_last_sl.to_uint();
+  } else {
+    forward_steps = sl.to_uint() + sl.nof_slots_per_system_frame() - cqi_last_sl.to_uint();
+  }
+  if (forward_steps > 1) {
+    logger.warning("slot_point jumped more than 1 timeslot. cqi_last_sl: {} sl: {} steps: {}", cqi_last_sl.system_slot(), sl.system_slot(), forward_steps);
+  }
+  cqi_last_sl = sl;
+  uint32_t sum = 0;
+  for (uint32_t i = 0; i < forward_steps; i++) {
+    sum += cqi_trace[base_index];
+    base_index = (base_index + 1) % cqi_trace.size();
+  }
+  sum = sum / forward_steps;
+  return sum;
+}
+
 
 ue_event_manager::~ue_event_manager() = default;
 
@@ -539,7 +594,7 @@ void ue_event_manager::handle_harq_ind(ue_cell&                               ue
   }
 }
 
-void ue_event_manager::handle_csi(ue_cell& ue_cc, const csi_report_data& csi_rep)
+void ue_event_manager::handle_csi(slot_point sl, ue_cell& ue_cc, const csi_report_data& csi_rep)
 {
   // Forward CSI bits to UE.
   ue_cc.handle_csi_report(csi_rep);
@@ -621,8 +676,8 @@ void ue_event_manager::handle_uci_indication(const uci_indication& ind)
                 }
 
                 // Process CSI.
-                if (pusch_pdu->csi.has_value()) {
-                  handle_csi(ue_cc, *pusch_pdu->csi);
+                if (pusch_pdu->csi.has_value() and not cqi_tracing_enabled) {
+                  handle_csi(uci_sl, ue_cc, *pusch_pdu->csi);
                 }
               } else if (const auto* pucch_f2f3f4 =
                              std::get_if<uci_indication::uci_pdu::uci_pucch_f2_or_f3_or_f4_pdu>(&uci_pdu->pdu)) {
@@ -646,8 +701,8 @@ void ue_event_manager::handle_uci_indication(const uci_indication& ind)
                 }
 
                 // Process CSI.
-                if (pucch_f2f3f4->csi.has_value()) {
-                  handle_csi(ue_cc, *pucch_f2f3f4->csi);
+                if (pucch_f2f3f4->csi.has_value() and not cqi_tracing_enabled) {
+                  handle_csi(uci_sl, ue_cc, *pucch_f2f3f4->csi);
                 }
 
                 const bool is_uci_valid =
@@ -946,6 +1001,24 @@ void ue_event_manager::run(slot_point sl, du_cell_index_t cell_index)
 
   // Process carrier specific events.
   process_cell_specific(cell_index);
+
+  setup(sl, cell_index);
+}
+
+void ue_event_manager::setup(slot_point sl, du_cell_index_t cell_index) {
+  auto cqi = get_next_cqi_from_trace(sl);
+  for (auto & it : ue_db) {
+    auto *ue = it.get();
+    ue_cell* ue_cc = ue->find_cell(cell_index);
+    auto x = csi_report_data  {
+      .first_tb_wideband_cqi = cqi,
+      .valid = true,
+    };
+    ue_cc->handle_csi_report(x);
+    auto *metric_handler = du_cells[ue_cc->cell_index].metrics;
+    auto& ue_metric_context = metric_handler->ues[ue->ue_index];
+    metric_handler->handle_csi_report(ue_metric_context, x);
+  }
 }
 
 void ue_event_manager::add_cell(const cell_creation_event& cell_ev)

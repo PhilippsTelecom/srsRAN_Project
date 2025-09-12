@@ -30,6 +30,7 @@
 #include "srsran/adt/mpmc_queue.h"
 #include "srsran/adt/unique_function.h"
 #include "srsran/ran/du_types.h"
+#include "srsran/ran/slot_point.h"
 
 namespace srsran {
 
@@ -60,7 +61,7 @@ class ue_event_manager final : public sched_ue_configuration_handler,
                                public scheduler_positioning_handler
 {
 public:
-  ue_event_manager(ue_repository& ue_db);
+  ue_event_manager(ue_repository& ue_db, const scheduler_ue_expert_config& expert_cfg_);
   ~ue_event_manager() override;
 
   void add_cell(const cell_creation_event& cell_ev);
@@ -93,6 +94,13 @@ public:
   void run(slot_point sl, du_cell_index_t cell_index);
 
 private:
+  void read_cqi_trace(const std::string& cqi_trace_filename);
+  uint8_t get_next_cqi_from_trace(slot_point sl);
+  slot_point cqi_last_sl;
+  bool first_time = true;
+  uint32_t base_index = 0;
+  void setup(slot_point sl, du_cell_index_t cell_index);
+
   class ue_dl_buffer_occupancy_manager;
 
   struct common_event_t {
@@ -143,7 +151,7 @@ private:
                        slot_point                             uci_sl,
                        span<const mac_harq_ack_report_status> harq_bits,
                        std::optional<float>                   pucch_snr);
-  void handle_csi(ue_cell& ue_cc, const csi_report_data& csi_rep);
+  void handle_csi(slot_point sl, ue_cell& ue_cc, const csi_report_data& csi_rep);
 
   /// List of added and configured cells.
   struct du_cell {
@@ -159,6 +167,11 @@ private:
   };
 
   ue_repository&        ue_db;
+  bool cqi_tracing_enabled = false;
+  std::vector<uint8_t> cqi_trace;
+
+  const scheduler_ue_expert_config& expert_cfg;
+
   srslog::basic_logger& logger;
 
   std::unique_ptr<pdu_indication_pool> ind_pdu_pool;

@@ -635,6 +635,11 @@ struct du_high_unit_csi_config {
   /// \brief \c powerControlOffset, part of \c NZP-CSI-RS-Resource, as per TS 38.331.
   /// Power offset of PDSCH RE to NZP CSI-RS RE. Value in dB {-8,...,15}.
   int pwr_ctrl_offset = 0;
+
+  /// Are CQI values used read from a CQI trace file?
+  bool cqi_tracing_enabled;
+  /// Path to the CQI trace file.
+  std::optional<std::string> cqi_trace_filename;
 };
 
 /// MAC Buffer Status Report application configuration.

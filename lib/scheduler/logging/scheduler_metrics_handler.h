@@ -40,6 +40,7 @@ struct sched_result;
 ///\brief Handler of scheduler slot metrics for a given cell.
 class cell_metrics_handler final : public sched_metrics_ue_configurator
 {
+ public:
   using msecs = std::chrono::milliseconds;
   using usecs = std::chrono::microseconds;
 
@@ -121,7 +122,7 @@ class cell_metrics_handler final : public sched_metrics_ue_configurator
 
   // Derived values.
   unsigned nof_slots_per_sf    = 0;
-  unsigned report_period_slots = 0;
+  unsigned report_period_slots = 10;
 
   slot_point last_slot_tx;
 
@@ -204,7 +205,6 @@ public:
   /// \brief Checks whether the metrics reporting is active.
   bool connected() const { return report_period != std::chrono::nanoseconds{0}; }
 
-private:
   void handle_pucch_sinr(ue_metric_context& u, float sinr);
   void handle_csi_report(ue_metric_context& u, const csi_report_data& csi);
   void report_metrics();

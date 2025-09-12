@@ -98,6 +98,14 @@ struct scheduler_ue_expert_config {
   interval<sch_mcs_index, true> ul_mcs;
   /// Sequence of redundancy versions used for PUSCH scheduling. Possible values: {0, 1, 2, 3}.
   std::vector<uint8_t> pusch_rv_sequence;
+
+
+  /// Are CQI values used read from a CQI trace file?
+  bool cqi_tracing_enabled{false};
+  /// Path to the CQI trace file.    
+  std::string cqi_trace_filename{};         
+
+
   unsigned             initial_cqi;
   /// Maximum number of DL HARQ retxs.
   unsigned max_nof_dl_harq_retxs = 4;

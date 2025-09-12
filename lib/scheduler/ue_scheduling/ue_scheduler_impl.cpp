@@ -29,7 +29,7 @@ using namespace srsran;
 ue_scheduler_impl::ue_scheduler_impl(const scheduler_ue_expert_config& expert_cfg_) :
   expert_cfg(expert_cfg_),
   ue_alloc(expert_cfg, ue_db, srslog::fetch_basic_logger("SCHED")),
-  event_mng(ue_db),
+  event_mng(ue_db, expert_cfg_),
   logger(srslog::fetch_basic_logger("SCHED"))
 {
 }
