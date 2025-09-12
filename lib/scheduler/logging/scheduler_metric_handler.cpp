@@ -162,6 +162,12 @@ void cell_metrics_handler::handle_uci_pdu_indication(const uci_indication::uci_p
         handle_csi_report(u, f2->csi.value());
       }
 
+      if (f2->csi.has_value()) {
+        if (not cell_cfg.expert_cfg.ue.cqi_tracing_enabled) {
+          handle_csi_report(u, f2->csi.value());
+        }
+      }
+
       if (f2->time_advance_offset.has_value()) {
         u.last_ta = f2->time_advance_offset;
       }
@@ -170,7 +176,9 @@ void cell_metrics_handler::handle_uci_pdu_indication(const uci_indication::uci_p
       const auto& pusch = std::get<uci_indication::uci_pdu::uci_pusch_pdu>(pdu.pdu);
 
       if (pusch.csi.has_value()) {
-        handle_csi_report(u, pusch.csi.value());
+        if (not cell_cfg.expert_cfg.ue.cqi_tracing_enabled) {
+          handle_csi_report(u, pusch.csi.value());
+        }
       }
     }
   }

@@ -31,6 +31,7 @@
 #include "srsran/adt/mpmc_queue.h"
 #include "srsran/adt/unique_function.h"
 #include "srsran/ran/du_types.h"
+#include "srsran/ran/slot_point.h"
 
 
 #include <cstdint>
@@ -148,7 +149,7 @@ private:
                        slot_point                             uci_sl,
                        span<const mac_harq_ack_report_status> harq_bits,
                        std::optional<float>                   pucch_snr);
-  void handle_csi(ue_cell& ue_cc, const csi_report_data& csi_rep);
+  void handle_csi(slot_point sl, ue_cell& ue_cc, const csi_report_data& csi_rep);
 
   /// List of added and configured cells.
   struct du_cell {

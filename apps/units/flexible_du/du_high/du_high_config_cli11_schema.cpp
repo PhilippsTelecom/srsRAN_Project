@@ -550,6 +550,16 @@ static void configure_cli11_csi_args(CLI::App& app, du_high_unit_csi_config& csi
              "powerControlOffset, Power offset of PDSCH RE to NZP CSI-RS RE in dB")
       ->capture_default_str()
       ->check(CLI::Range(-8, 15));
+  add_option(app,
+             "--cqi_tracing_enabled",
+             csi_params.cqi_tracing_enabled,
+             "Are CQI values used read from a CQI trace file?")
+      ->capture_default_str();
+  add_option(app,
+             "--cqi_trace_directory",
+             csi_params.cqi_trace_directory,
+             "Directory containing CQI traces")
+      ->capture_default_str();
 }
 
 static void configure_cli11_pf_scheduler_expert_args(CLI::App& app, time_pf_scheduler_expert_config& expert_params)

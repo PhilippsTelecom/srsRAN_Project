@@ -873,6 +873,12 @@ scheduler_expert_config srsran::generate_scheduler_expert_config(const du_high_u
   }
   out_cfg.ue.ul_mcs = {pusch.min_ue_mcs, pusch.max_ue_mcs};
   out_cfg.ue.pusch_rv_sequence.assign(pusch.rv_sequence.begin(), pusch.rv_sequence.end());
+
+
+  out_cfg.ue.cqi_tracing_enabled = cell.csi_cfg.cqi_tracing_enabled;
+  out_cfg.ue.cqi_trace_directory = cell.csi_cfg.cqi_trace_directory.value_or("");
+
+
   out_cfg.ue.initial_ul_dc_offset   = pusch.dc_offset;
   out_cfg.ue.max_puschs_per_slot    = pusch.max_puschs_per_slot;
   out_cfg.ue.olla_ul_target_bler    = pusch.olla_target_bler;

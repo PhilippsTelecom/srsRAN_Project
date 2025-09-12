@@ -37,6 +37,7 @@ struct rach_indication_message;
 ///\brief Handler of scheduler slot metrics for a given cell.
 class cell_metrics_handler final : public sched_metrics_ue_configurator
 {
+ public:
   using msecs = std::chrono::milliseconds;
   using usecs = std::chrono::microseconds;
 
@@ -88,8 +89,10 @@ class cell_metrics_handler final : public sched_metrics_ue_configurator
   scheduler_metrics_notifier&     notifier;
   const std::chrono::milliseconds report_period;
   const cell_configuration&       cell_cfg;
-  /// Derived value.
-  unsigned report_period_slots = 0;
+
+  // Derived values.
+  //unsigned nof_slots_per_sf    = 0;
+  unsigned report_period_slots = 10;
 
   slot_point last_slot_tx;
 

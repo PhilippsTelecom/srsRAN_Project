@@ -66,7 +66,8 @@ struct scheduler_ue_expert_config {
   /// Range of allowed MCS indices for UL UE scheduling. To use a fixed mcs, set the minimum mcs equal to the maximum.
   interval<sch_mcs_index, true> ul_mcs;
   /// Sequence of redundancy versions used for PUSCH scheduling. Possible values: {0, 1, 2, 3}.
-  std::vector<uint8_t> pusch_rv_sequence;
+  std::vector<uint8_t> pusch_rv_sequence;        
+
   unsigned             initial_cqi;
   unsigned             max_nof_harq_retxs;
   /// Maximum MCS index that can be assigned when scheduling MSG4.

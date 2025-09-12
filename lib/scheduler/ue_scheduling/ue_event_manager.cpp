@@ -538,7 +538,7 @@ void ue_event_manager::handle_harq_ind(ue_cell&                               ue
   }
 }
 
-void ue_event_manager::handle_csi(ue_cell& ue_cc, const csi_report_data& csi_rep)
+void ue_event_manager::handle_csi(slot_point sl, ue_cell& ue_cc, const csi_report_data& csi_rep)
 {
   // Forward CSI bits to UE.
   ue_cc.handle_csi_report(csi_rep);
@@ -589,8 +589,8 @@ void ue_event_manager::handle_uci_indication(const uci_indication& ind)
                 }
 
                 // Process CSI.
-                if (pusch_pdu->csi.has_value()) {
-                  handle_csi(ue_cc, *pusch_pdu->csi);
+                if (pusch_pdu->csi.has_value() and not cqi_tracing_enabled) {
+                  handle_csi(uci_sl, ue_cc, *pusch_pdu->csi);
                 }
               } else if (const auto* pucch_f2f3f4 =
                              std::get_if<uci_indication::uci_pdu::uci_pucch_f2_or_f3_or_f4_pdu>(&uci_pdu.pdu)) {
@@ -611,8 +611,8 @@ void ue_event_manager::handle_uci_indication(const uci_indication& ind)
                 }
 
                 // Process CSI.
-                if (pucch_f2f3f4->csi.has_value()) {
-                  handle_csi(ue_cc, *pucch_f2f3f4->csi);
+                if (pucch_f2f3f4->csi.has_value() and not cqi_tracing_enabled) {
+                  handle_csi(uci_sl, ue_cc, *pucch_f2f3f4->csi);
                 }
 
                 const bool is_uci_valid =
