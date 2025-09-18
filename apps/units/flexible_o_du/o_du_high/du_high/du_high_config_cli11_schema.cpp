@@ -551,12 +551,12 @@ static void configure_cli11_csi_args(CLI::App& app, du_high_unit_csi_config& csi
   add_option(app,
              "--cqi_tracing_enabled",
              csi_params.cqi_tracing_enabled,
-             "Are CQI values used read from a CQI trace file?")
+             "Are CQI values used read from a CQI trace directory?")
       ->capture_default_str();
   add_option(app,
-             "--cqi_trace_filename",
-             csi_params.cqi_trace_filename,
-             "Are CQI values used read from a CQI trace file?")
+             "--cqi_trace_directory",
+             csi_params.cqi_trace_directory,
+             "Are CQI values used read from a CQI trace directory?")
       ->capture_default_str();
 }
 

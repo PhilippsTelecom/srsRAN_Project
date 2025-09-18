@@ -639,7 +639,7 @@ struct du_high_unit_csi_config {
   /// Are CQI values used read from a CQI trace file?
   bool cqi_tracing_enabled;
   /// Path to the CQI trace file.
-  std::optional<std::string> cqi_trace_filename;
+  std::optional<std::string> cqi_trace_directory;
 };
 
 /// MAC Buffer Status Report application configuration.

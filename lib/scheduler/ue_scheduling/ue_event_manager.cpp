@@ -28,7 +28,9 @@
 #include "../uci_scheduling/uci_scheduler_impl.h"
 #include "srsran/support/memory_pool/unbounded_object_pool.h"
 #include <fstream>
+#include <filesystem>
 
+namespace fs = std::filesystem; // To browse the CQI directory
 using namespace srsran;
 
 /// \brief More than one DL buffer occupancy update may be received per slot for the same UE and bearer. This class
@@ -218,54 +220,101 @@ ue_event_manager::ue_event_manager(ue_repository& ue_db_, const scheduler_ue_exp
 {
   if (expert_cfg.cqi_tracing_enabled) {
     cqi_tracing_enabled = true;
-    read_cqi_trace(expert_cfg.cqi_trace_filename);
+    read_cqi_traces(expert_cfg.cqi_trace_directory);
   }
 }
 
-void ue_event_manager::read_cqi_trace(const std::string& cqi_trace_filename) {
-  std::ifstream file(cqi_trace_filename);
-  logger.info("Reading CQI trace file: {}", cqi_trace_filename);
-  if (not file.good()) {
-    logger.error("Failed to open CQI trace file: {}", cqi_trace_filename);
-    return;
-  }
-  std::string line;
-  while (std::getline(file, line)) {
-    try {
-      int cqi_val = std::stoi(line);
-      cqi_trace.push_back(static_cast<uint8_t>(cqi_val));
-    } catch (const std::exception&) {
-      logger.warning("Invalid CQI value in trace file: '{}'", line);
+void ue_event_manager::read_cqi_traces(const std::string& cqi_trace_directory) {
+  // LOAD ALL CQI FILES INSIDE THE CQI DIRECTORY
+  for (const auto& entry : fs::directory_iterator(cqi_trace_directory)) {
+    // IGNORE CURRENT FILE
+    if (!entry.is_regular_file()) continue;
+    
+    // OPEN CURRENT FILE
+    const std::string cqi_trace_filename = entry.path().string();
+    std::ifstream file(cqi_trace_filename);
+    logger.info("Reading CQI trace file: {}", cqi_trace_filename);
+    if (not file.good()) {
+      logger.error("Failed to open CQI trace file: {}", cqi_trace_filename);
+      return;
     }
+    // BROWSE CURRENT FILE
+    std::vector<uint8_t> current_trace; // (current CQI trace: to be saved)
+    std::string line;
+    while (std::getline(file, line)) {
+      try {
+        int cqi_val = std::stoi(line);
+        current_trace.push_back(static_cast<uint8_t>(cqi_val));
+      } catch (const std::exception&) {
+        logger.warning("Invalid CQI value in trace file: '{}'", line);
+      }
+    }
+    // FINISH READING THE FILE
+    if (file.eof()) {
+      logger.info("Successfully read CQI trace file: {}", cqi_trace_filename);
+    } else {
+      logger.error("Error reading CQI trace file: {}", cqi_trace_filename);
+    }
+    // SAVE VALUES
+    cqi_traces.push_back(std::make_pair(std::move(current_trace),0));
   }
-  if (file.eof()) {
-    logger.error("Successfully read CQI trace file: {}", cqi_trace_filename);
-  } else {
-    logger.error("Error reading CQI trace file: {}", cqi_trace_filename);
+
+  // WILL TRIGGER A PROBLEM LATER ON
+  if(cqi_traces.empty()){
+    logger.error("No CQI file has been loaded");
+    std::exit(EXIT_FAILURE);
   }
 }
 
-uint8_t ue_event_manager::get_next_cqi_from_trace(slot_point sl) {
+uint8_t ue_event_manager::get_next_cqi_from_trace(slot_point sl, uint16_t ue_index) {
+
+  // CQI FILE DEPENDS ON UE INDEX
+  int index                       = ue_index % cqi_traces.size();
+  auto& pair                      = cqi_traces[index];
+  const auto& cqi_trace           = pair.first;
+  int trace_index                 = pair.second;
+  // SELECTED TRACE IS EMPTY: EXIT
+  if (cqi_trace.empty()) {
+    logger.error("Selected CQI trace is empty.");
+    return 15;
+  }
+
+  
   if (first_time) {
     cqi_last_sl = sl;
     first_time = false; 
     return 15;
   }
-  uint32_t forward_steps;
-  if (sl.to_uint() >= cqi_last_sl.to_uint()) {
-    forward_steps = sl.to_uint() - cqi_last_sl.to_uint();
-  } else {
-    forward_steps = sl.to_uint() + sl.nof_slots_per_system_frame() - cqi_last_sl.to_uint();
+  // NEW TIME SLOT: UPDATE 'FORWARD STEPS'
+  if (cqi_last_sl != sl){ 
+    if (sl.to_uint() >= cqi_last_sl.to_uint()) {
+      forward_steps = sl.to_uint() - cqi_last_sl.to_uint();
+    } else {
+      forward_steps = sl.to_uint() + sl.nof_slots_per_system_frame() - cqi_last_sl.to_uint();
+    }
+    // SHOULD NOT HAPPEN: TWO DIFFERENT SLOTS HAVING SAME TIME
+    if (forward_steps == 0){
+      logger.error("[Next CQI] Forward Step is equal to 0");
+      return cqi_trace[trace_index % cqi_trace.size()];
+    }
+    // SHOULD NOT HAPPEN: TIME DIFFERENCE HIGHER THAN 1
+    if (forward_steps > 1) {
+      logger.warning("slot_point jumped more than 1 timeslot. cqi_last_sl: {} sl: {} steps: {}", cqi_last_sl.system_slot(), sl.system_slot(), forward_steps);
+    }
+    // UPDATE LAST SLOT
+    cqi_last_sl = sl;
   }
-  if (forward_steps > 1) {
-    logger.warning("slot_point jumped more than 1 timeslot. cqi_last_sl: {} sl: {} steps: {}", cqi_last_sl.system_slot(), sl.system_slot(), forward_steps);
-  }
-  cqi_last_sl = sl;
+
+  // GENERAL CASE: WE ARE GOING THROUGH ALL UEs
+  // MOVE FROM 'FORWARD_STEPS' IN TRACE 
   uint32_t sum = 0;
   for (uint32_t i = 0; i < forward_steps; i++) {
-    sum += cqi_trace[base_index];
-    base_index = (base_index + 1) % cqi_trace.size();
+    sum += cqi_trace[trace_index];
+    trace_index = (trace_index + 1) % cqi_trace.size();
   }
+  // SAVE UPDATED TRACE INDEX
+  cqi_traces[index].second = trace_index;
+
   sum = sum / forward_steps;
   return sum;
 }
@@ -1006,9 +1055,11 @@ void ue_event_manager::run(slot_point sl, du_cell_index_t cell_index)
 }
 
 void ue_event_manager::setup(slot_point sl, du_cell_index_t cell_index) {
-  auto cqi = get_next_cqi_from_trace(sl);
   for (auto & it : ue_db) {
     auto *ue = it.get();
+    // READ CQI FOR UE
+    const uint16_t ue_index = static_cast<uint16_t>(ue->ue_index); // For the sake of clarity
+    auto cqi = get_next_cqi_from_trace(sl,ue_index);
     ue_cell* ue_cc = ue->find_cell(cell_index);
     auto x = csi_report_data  {
       .first_tb_wideband_cqi = cqi,

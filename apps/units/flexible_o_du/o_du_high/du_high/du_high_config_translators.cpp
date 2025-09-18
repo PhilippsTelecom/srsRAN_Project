@@ -1012,7 +1012,7 @@ scheduler_expert_config srsran::generate_scheduler_expert_config(const du_high_u
 
 
   out_cfg.ue.cqi_tracing_enabled = cell.csi_cfg.cqi_tracing_enabled;
-  out_cfg.ue.cqi_trace_filename = cell.csi_cfg.cqi_trace_filename.value_or("");
+  out_cfg.ue.cqi_trace_directory = cell.csi_cfg.cqi_trace_directory.value_or("");
 
 
   out_cfg.ue.initial_ul_dc_offset   = pusch.dc_offset;

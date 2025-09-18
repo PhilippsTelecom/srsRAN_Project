@@ -102,8 +102,8 @@ struct scheduler_ue_expert_config {
 
   /// Are CQI values used read from a CQI trace file?
   bool cqi_tracing_enabled{false};
-  /// Path to the CQI trace file.    
-  std::string cqi_trace_filename{};         
+  /// Path to the CQI traces directory.
+  std::string cqi_trace_directory{};         
 
 
   unsigned             initial_cqi;

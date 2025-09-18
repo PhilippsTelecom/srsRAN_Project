@@ -94,11 +94,10 @@ public:
   void run(slot_point sl, du_cell_index_t cell_index);
 
 private:
-  void read_cqi_trace(const std::string& cqi_trace_filename);
-  uint8_t get_next_cqi_from_trace(slot_point sl);
+  void read_cqi_traces(const std::string& cqi_trace_filename);
+  uint8_t get_next_cqi_from_trace(slot_point sl,uint16_t ue_index);
   slot_point cqi_last_sl;
   bool first_time = true;
-  uint32_t base_index = 0;
   void setup(slot_point sl, du_cell_index_t cell_index);
 
   class ue_dl_buffer_occupancy_manager;
@@ -167,8 +166,9 @@ private:
   };
 
   ue_repository&        ue_db;
-  bool cqi_tracing_enabled = false;
-  std::vector<uint8_t> cqi_trace;
+  bool cqi_tracing_enabled  = false;
+  std::vector<std::pair<std::vector<uint8_t>,uint32_t>> cqi_traces;
+  uint32_t forward_steps    = 1;
 
   const scheduler_ue_expert_config& expert_cfg;
 
