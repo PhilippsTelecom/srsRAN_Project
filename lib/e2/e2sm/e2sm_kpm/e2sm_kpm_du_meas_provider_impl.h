@@ -33,6 +33,8 @@
 #include <deque>
 #include <map>
 #include <numeric>
+#include <mutex>
+#include <shared_mutex>
 
 namespace srsran {
 
@@ -98,6 +100,7 @@ private:
   bool  handle_no_meas_data_available(const std::vector<asn1::e2sm::ue_id_c>&        ues,
                                       std::vector<asn1::e2sm::meas_record_item_c>&   items,
                                       asn1::e2sm::meas_record_item_c::types::options value_type);
+  bool extract_valid_du_id(const asn1::e2sm::ue_id_c& ue, gnb_cu_ue_f1ap_id_t& out_id);
 
   // Measurement getter functions.
   metric_meas_getter_func_t get_cqi;
@@ -136,6 +139,7 @@ private:
   unsigned                                           nof_ded_cell_preambles;
   std::vector<scheduler_ue_metrics>                  last_ue_metrics;
   std::map<uint16_t, std::deque<rlc_metrics>>        ue_aggr_rlc_metrics;
+  mutable std::shared_mutex                          rlc_metrics_mutex; // Segfault may be due to ue_aggr_rlc_metrics (threads that R/W)
   size_t                                             max_rlc_metrics = 5; // 5 * 10 = 50 ms
   std::map<std::string, e2sm_kpm_supported_metric_t> supported_metrics;
 };

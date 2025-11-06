@@ -42,6 +42,7 @@
 #define MIN_DELAY_QUEUE 0.005 // 5 ms 
 #define MAX_DELAY_QUEUE 0.01 // 10 ms
 #define L4S_UPDATE_PERIO 0.005 // marking probability update
+#define L4S_ALPHA 0.8
 
 namespace srsran {
 
@@ -93,7 +94,7 @@ struct l4s_utils {
   int                                               l4s_mode; 
 
   /// \brief Current Marking Probability 
-  int marking_prob; 
+  int marking_prob    = 0; 
 
   /// \brief Used to compute the marking probability   
   std::random_device                                 rd;

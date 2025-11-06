@@ -168,9 +168,11 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
     double rate       = static_cast<double> (gBytes) / time;
     // COMPUTES DELAYS AND MARKING PROBABILITY
     if(rate > 0){
+      float tmp_mark_prob = 0; 
       double est_delay= static_cast<double>(static_cast<double>(nbBytes)/rate);
-      if(est_delay > MAX_DELAY_QUEUE) l4s.marking_prob = 100; 
-      else l4s.marking_prob = est_delay < MIN_DELAY_QUEUE ? 0 : float(est_delay - MIN_DELAY_QUEUE) / (MAX_DELAY_QUEUE - MIN_DELAY_QUEUE) * 100;
+      if(est_delay > MAX_DELAY_QUEUE) tmp_mark_prob = 100; 
+      else tmp_mark_prob = est_delay < MIN_DELAY_QUEUE ? 0 : float(est_delay - MIN_DELAY_QUEUE) / (MAX_DELAY_QUEUE - MIN_DELAY_QUEUE) * 100;
+      l4s.marking_prob = int(L4S_ALPHA * tmp_mark_prob + (1-L4S_ALPHA) * l4s.marking_prob);
     }
   }
 
