@@ -194,10 +194,11 @@
    void write_data_pdu_to_lower_layers(pdcp_tx_buf_info&& buf_info, bool is_retx);
    void write_control_pdu_to_lower_layers(byte_buffer buf);
 
-   // To print IP address
-   void ip_to_string(uint8_t* ip);
    // To compute new Checksum
    void compute_checksum(uint8_t* data, uint8_t result[2]);
+
+   // Write the E2SM_RC ID to the RTP Payload
+   void write_rc_id_rtp_payload(byte_buffer& data);
 
    /// Apply ciphering and integrity protection to the payload
    expected<byte_buffer> apply_ciphering_and_integrity_protection(byte_buffer buf, uint32_t count);

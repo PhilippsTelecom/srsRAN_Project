@@ -1,6 +1,6 @@
-ran_node_name: cu_cp_01             # Optional TEXT (cu_cp_01). Sets the text ID associated with the gNB. Format: string without spaces.
 gnb_id: 411 
-gnb_cu_up_id: 2 
+ran_node_name: gnb_001_001_00019b             # Optional TEXT (cu_cp_01). Sets the text ID associated with the gNB. Format: string without spaces.
+
 
 cu_cp:
   amf:
@@ -30,15 +30,15 @@ cu_up:
 e2:
   enable_cu_cp_e2: true                # Optional BOOLEAN (false). Enables the CU-CP E2 agent. Supported: [false, true]. 
   enable_cu_up_e2: false                # Optional BOOLEAN (false). Enables the CU-UP E2 agent. Supported: [false, true]. 
-  addr: 127.0.0.1 #129.97.168.65 #10.0.2.10
+  addr: 127.0.0.1
   port: 36421
-  bind_addr: 127.0.0.2 # 129.97.168.65 #10.0.2.2
+  bind_addr: 127.0.0.2
   sctp_rto_initial: 120
   sctp_rto_min: 120
   sctp_rto_max: 500
   sctp_init_max_attempts: 3
   sctp_max_init_timeo: 500
-  e2sm_kpm_enabled: true
+  e2sm_kpm_enabled: false # Test voir si bloque RC
   e2sm_rc_enabled: true
 
 
@@ -54,4 +54,9 @@ pcap:
   e1ap_filename: /tmp/gnb_e1ap.pcap
   # f1u_enable: true
   # f1u_filename: /tmp/gnb_f1u.pcap
+  e2ap_cu_cp_filename: ./cu_cp_e2ap.pcap # Optional TEXT (/tmp/cu_cp_e2ap.pcap). Path for E2AP CU-CP PCAPs.
+  e2ap_cu_up_filename: ./cu_up_e2ap.pcap # Optional TEXT (/tmp/cu_up_e2ap.pcap). Path for E2AP CU-UP PCAPs.
+  e2ap_enable: true
 
+
+# https://docs.srsran.com/projects/project/en/latest/user_manuals/source/config_ref.html#id1

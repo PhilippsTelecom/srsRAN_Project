@@ -607,10 +607,10 @@
  
  // To modify MARKING PROBABILITY
  struct cu_cp_intra_drb_modification_request {
-  ue_index_t        ue_id = ue_index_t::invalid;
-  pdu_session_id_t  target_pdu_index = pdu_session_id_t::invalid;
-  drb_id_t          target_drb_index = drb_id_t::invalid;
-  int               marking_prob = -1; 
+  ue_index_t ue_id                  = ue_index_t::invalid;
+  pdu_session_id_t target_pdu_index = pdu_session_id_t::invalid;
+  drb_id_t target_drb_index         = drb_id_t::invalid;
+  int marking_prob                  = -1;
  };
  
  struct cu_cp_intra_drb_modification_response {

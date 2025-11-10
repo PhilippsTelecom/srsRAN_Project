@@ -22,6 +22,7 @@
 
  #include "pdcp_entity_tx.h"
  #include "../security/security_engine_impl.h"
+#include "uWebSockets/uSockets/libusockets.h"
  #include "srsran/instrumentation/traces/up_traces.h"
  #include "srsran/support/bit_encoding.h"
  #include "srsran/support/resource_usage/scoped_resource_usage.h"
@@ -29,6 +30,7 @@
  #include <algorithm>
 
  // DEBUG
+#include <cstdint>
  #include <iostream> 
  
  using namespace srsran;
@@ -109,21 +111,6 @@
     }
   }
 
- void pdcp_entity_tx::ip_to_string(uint8_t* ip) {
-    if (ip != nullptr)
-    {
-      char ip_str[INET_ADDRSTRLEN];
-      struct in_addr ip_addr;
-  
-      std::memcpy(&ip_addr, ip, 4);
-      if (inet_ntop(AF_INET, &ip_addr, ip_str, INET_ADDRSTRLEN) != nullptr) {
-        std::cout << "Adresse IP : " << ip_str << std::endl;
-      } else {
-        std::cout << "Erreur de conversion de l'adresse IP" << std::endl;
-      }
-    }
- }
-
   /// \brief Receives a modified IP header (ECN-CE marked)
   /// Computes the checksum of this header
   /// Returns the modified checksum made of 2 bytes (checksum on 2 bytes)
@@ -151,6 +138,45 @@
   result[0]=(chksum >> 8) & 0xFF; // two strong bytes
   result[1]=chksum & 0xFF; // two weak bytes
 
+ }
+
+ /// \brief Modifies the RTP Payload to write the E2SM-RC ID
+  /// Re-computes the UDP checksum
+  ///
+  /// \param buf the byte_buffer read from the above layer
+ void pdcp_entity_tx::write_rc_id_rtp_payload(byte_buffer& buf){
+    uint8_t* version  = buf.get_payload_(4*0,1);
+    // Ensure IPv4 Header
+    if (version != nullptr && *(version)>>4 == 4){
+      int ip_header_length  = *version & 0x0f;
+
+      // Ensure UDP is used
+      uint8_t* protocol = buf.get_payload_(4*2+1,1);
+      if(protocol != nullptr && *protocol == 17){
+
+        // Test UDP reading
+        uint8_t* udp_src  = buf.get_payload_(4*ip_header_length,2);
+        if(udp_src != nullptr){
+          uint16_t src_port = (udp_src[0] << 8) | udp_src[1];
+          logger.log_info("Value = {}",src_port);
+        }
+        free(udp_src);
+
+        // Ensure correct RTP version
+        
+      }
+      free(protocol);
+    }
+    free(version);
+    /* 
+         |-0--3-|-4--7-|-8--15-|-16-|-17-|-18-|-19--31-|
+         =============================================== 
+         | Vers | Hlen |  TOS  |         Tot Len       | 
+         |       Identif       | Res| DF | MF | F offs |
+         | Time To Live| Proto |     Header Chksum     |
+         |                 IP SSRC                     |
+         |                 IP DEST                     | } 32 bits = 4 octets
+        */ // IP HEADER
  }
  
  /// \brief Receive an SDU from the upper layers, apply encryption
@@ -234,26 +260,16 @@
      }
    }
  
+    // TEMPORARY: WRITE ID IN RTP PAYLOAD
+    write_rc_id_rtp_payload(buf);
 
    // Apply L4S marking
    int random_number = dis(gen);
    if ( random_number < marking_prob )
    {
-      // std::cout<<"About randomness: random_number = "<< random_number <<" - marking_pro = "<< marking_prob << std::endl;
-
      // Check if IP4 packet (Version)
       uint8_t* version = buf.get_payload_(4*0,1);
       if (version != nullptr and *(version)>>4 == 4){
-        // Test @IP1
-        //uint8_t* ip1 = buf.get_payload_(4*3,4);
-        //ip_to_string(ip1);
-        //free(ip1);
-        // Test @IP2
-        //uint8_t* ip2 = buf.get_payload_(4*4,4);
-        //ip_to_string(ip2);
-        //free(ip2);
-  
-
         // Check if IPv4-header extracted successfully (5 lines = 5*4 bytes)
         uint8_t* ip_header = buf.get_payload_(0,4*5);
         if (ip_header != nullptr){
@@ -720,7 +736,7 @@ if (cfg.discard_timer.has_value()) {
  {
    marking_prob = marking_prob_;
  }
- 
+
  /*
   * Notification Helpers
   */
