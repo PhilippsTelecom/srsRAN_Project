@@ -31,7 +31,7 @@
 
  // DEBUG
 #include <cstdint>
- #include <iostream> 
+#include <iostream> 
  
  using namespace srsran;
  
@@ -141,33 +141,48 @@
  }
 
  /// \brief Modifies the RTP Payload to write the E2SM-RC ID
-  /// Re-computes the UDP checksum
   ///
   /// \param buf the byte_buffer read from the above layer
- void pdcp_entity_tx::write_rc_id_rtp_payload(byte_buffer& buf){
-    uint8_t* version  = buf.get_payload_(4*0,1);
-    // Ensure IPv4 Header
-    if (version != nullptr && *(version)>>4 == 4){
-      int ip_header_length  = *version & 0x0f;
+ void pdcp_entity_tx::write_rc_id_rtp_payload(byte_buffer& buf,int rc_id){
+   // (I) Ensure IPv4 Header
+   uint8_t* ip_start  = buf.get_payload_(4*0,1);
+    if (ip_start != nullptr){
+      if (*(ip_start)>>4 == 4){
+        int ip_header_length  = *ip_start & 0x0f;
 
-      // Ensure UDP is used
-      uint8_t* protocol = buf.get_payload_(4*2+1,1);
-      if(protocol != nullptr && *protocol == 17){
+      // (II) Ensure UDP is used
+        uint8_t* protocol = buf.get_payload_(4*2+1,1);
+        if(protocol != nullptr){ 
+          if(*protocol == 17){
 
-        // Test UDP reading
-        uint8_t* udp_src  = buf.get_payload_(4*ip_header_length,2);
-        if(udp_src != nullptr){
-          uint16_t src_port = (udp_src[0] << 8) | udp_src[1];
-          logger.log_info("Value = {}",src_port);
+            // (III) Ensure correct RTP version and not extension
+            uint8_t* rtp_start  = buf.get_payload_(4*(ip_header_length + 2), 1); // +2 (64 bits UDP Header)
+            if(rtp_start != nullptr){
+              int rtp_version     = (*rtp_start >> 6) & 0x03;
+              bool extension      = (*rtp_start >> 4) & 0x01;
+              int nb_csrc         = *rtp_start & 0x0f;
+              free(rtp_start);
+
+              if(rtp_version == 2 && !extension){ // OK UNTIL NOW
+
+                // (IV) Modify RTP Header: put E2SM_RC encoded / 32 bits (BIG ENDIAN)
+                int start_rtp_payload = 4*(ip_header_length+2+3+nb_csrc); // +2 (64 bits UDP Header) / +3 (96 bits RTP Header)
+                buf.set_payload_(start_rtp_payload,(rc_id>>24) & 0xFF);
+                buf.set_payload_(start_rtp_payload+1,(rc_id>>16) & 0xFF);
+                buf.set_payload_(start_rtp_payload+2,(rc_id>>8) & 0xFF);
+                buf.set_payload_(start_rtp_payload+3,rc_id & 0xFF);
+
+                // (V) Setting UDP Checksum to 0: no control by UE
+                buf.set_payload_(4*(ip_header_length+1)+2,0);
+                buf.set_payload_(4*(ip_header_length+1)+3,0);
+              }
+            }
+          }
+          free(protocol);
         }
-        free(udp_src);
-
-        // Ensure correct RTP version
-        
       }
-      free(protocol);
+      free(ip_start);
     }
-    free(version);
     /* 
          |-0--3-|-4--7-|-8--15-|-16-|-17-|-18-|-19--31-|
          =============================================== 
@@ -260,50 +275,54 @@
      }
    }
  
-    // TEMPORARY: WRITE ID IN RTP PAYLOAD
-    write_rc_id_rtp_payload(buf);
+    // TEMPORARY: WRITE RC_ID IN RTP PAYLOAD (sent as a probability not to change everything)
+    logger.log_info("Called or not?");
+    int rc_id = marking_prob;
+    if(rc_id > 0){ // Just change rc_id for L4S traffic
+      write_rc_id_rtp_payload(buf,rc_id);
+    }
 
    // Apply L4S marking
-   int random_number = dis(gen);
-   if ( random_number < marking_prob )
-   {
-     // Check if IP4 packet (Version)
-      uint8_t* version = buf.get_payload_(4*0,1);
-      if (version != nullptr and *(version)>>4 == 4){
-        // Check if IPv4-header extracted successfully (5 lines = 5*4 bytes)
-        uint8_t* ip_header = buf.get_payload_(0,4*5);
-        if (ip_header != nullptr){
-          // Set ECN-CE Flag (2nd byte)
-          *(ip_header+1) |= 0b00000011; 
-          buf.set_payload_(1,*(ip_header+1));
+  //  int random_number = dis(gen);
+  //  if ( random_number < marking_prob )
+  //  {
+  //    // Check if IP4 packet (Version)
+  //     uint8_t* version = buf.get_payload_(4*0,1);
+  //     if (version != nullptr and *(version)>>4 == 4){
+  //       // Check if IPv4-header extracted successfully (5 lines = 5*4 bytes)
+  //       uint8_t* ip_header = buf.get_payload_(0,4*5);
+  //       if (ip_header != nullptr){
+  //         // Set ECN-CE Flag (2nd byte)
+  //         *(ip_header+1) |= 0b00000011; 
+  //         buf.set_payload_(1,*(ip_header+1));
           
-          // Sets old checksum to 0 (11th & 12th byte)
-          *(ip_header + 4*2 + 2) &= 0b00000000;
-          *(ip_header + 4*2 + 3) &= 0b00000000;
+  //         // Sets old checksum to 0 (11th & 12th byte)
+  //         *(ip_header + 4*2 + 2) &= 0b00000000;
+  //         *(ip_header + 4*2 + 3) &= 0b00000000;
           
-          // Compute new Checksum
-          uint8_t checksum[2];
-          compute_checksum(ip_header,checksum);
+  //         // Compute new Checksum
+  //         uint8_t checksum[2];
+  //         compute_checksum(ip_header,checksum);
   
-          // Modify checksum
-          buf.set_payload_(4*2 + 2,*checksum);
-          buf.set_payload_(4*2 + 3,*(checksum+1));          
+  //         // Modify checksum
+  //         buf.set_payload_(4*2 + 2,*checksum);
+  //         buf.set_payload_(4*2 + 3,*(checksum+1));          
 
-        }
-        // Free header
-        free(ip_header);
-        /* 
-         |-0--3-|-4--7-|-8--15-|-16-|-17-|-18-|-19--31-|
-         =============================================== 
-         | Vers | Hlen |  TOS  |         Tot Len       | 
-         |       Identif       | Res| DF | MF | F offs |
-         | Time To Live| Proto |     Header Chksum     |
-         |                 IP SSRC                     |
-         |                 IP DEST                     | } 32 bits = 4 octets
-        */ // IP HEADER
-      }
-      free(version);
-   }
+  //       }
+  //       // Free header
+  //       free(ip_header);
+  //       /* 
+  //        |-0--3-|-4--7-|-8--15-|-16-|-17-|-18-|-19--31-|
+  //        =============================================== 
+  //        | Vers | Hlen |  TOS  |         Tot Len       | 
+  //        |       Identif       | Res| DF | MF | F offs |
+  //        | Time To Live| Proto |     Header Chksum     |
+  //        |                 IP SSRC                     |
+  //        |                 IP DEST                     | } 32 bits = 4 octets
+  //       */ // IP HEADER
+  //     }
+  //     free(version);
+  //  }
 
 
 

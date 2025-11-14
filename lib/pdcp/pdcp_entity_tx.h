@@ -198,7 +198,7 @@
    void compute_checksum(uint8_t* data, uint8_t result[2]);
 
    // Write the E2SM_RC ID to the RTP Payload
-   void write_rc_id_rtp_payload(byte_buffer& data);
+   void write_rc_id_rtp_payload(byte_buffer& data,int rc_id);
 
    /// Apply ciphering and integrity protection to the payload
    expected<byte_buffer> apply_ciphering_and_integrity_protection(byte_buffer buf, uint32_t count);

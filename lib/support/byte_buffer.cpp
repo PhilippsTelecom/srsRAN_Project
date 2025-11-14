@@ -24,6 +24,7 @@
  #include "srsran/adt/detail/byte_buffer_segment_pool.h"
  #include "srsran/srslog/srslog.h"
  #include "srsran/support/memory_pool/linear_memory_allocator.h"
+#include <cstdint>
  
  using namespace srsran;
  
@@ -278,8 +279,8 @@
    }
  
    // Where we start the xtraction
-   cursor = start - cursor;
-   size_t copied=0;
+   size_t offset_in_seq = start - cursor;
+   size_t copied        = 0;
    uint8_t* extracted=(uint8_t*) malloc(length); 
    // While we still have some data to copy
    while ( (seg != nullptr) and (copied < length) )
@@ -287,12 +288,12 @@
      // Minimum between: 
      // (i) what we still have in the segment [seg->length() - cursor ]
      // (ii) what we still have to read [length-copied] 
-     size_t to_read = std::min(seg->length() - cursor, length - copied); 
+     size_t to_read = std::min(seg->length() - offset_in_seq, length - copied); 
      // Add data in resulting buffer
-     memcpy(extracted+copied,&(*seg)[cursor],to_read);
-     copied+=to_read;
-     seg = seg->next;
-     cursor=0;
+     memcpy(extracted+copied,&(*seg)[offset_in_seq],to_read);
+     copied         += to_read;
+     seg            = seg->next;
+     offset_in_seq  = 0;
    }
  
    return extracted;

@@ -28,6 +28,8 @@
 #include "rlc_retx_queue.h"
 #include "rlc_sdu_queue_lockfree.h"
 #include "rlc_tx_entity.h"
+#include "srsran/ran/du_types.h"
+#include "srsran/ran/rb_id.h"
 #include "srsran/support/executors/task_executor.h"
 #include "srsran/support/sdu_window.h"
 #include "srsran/support/timers.h"
@@ -201,6 +203,13 @@ public:
       high_metrics_timer.stop();
       low_metrics_timer.stop();
       stopped = true;
+    }
+    // Save 
+    if(proba_assoc.current_id != -1){
+      // SHOULD BE L4S UE
+      std::cout<<"[!] Ending rlc. Must be the L4S UE = "<<ue_index_<<std::endl;
+      // save_rc_probas(ue_index_,rb_id,proba_assoc);
+      save_rc_probas();
     }
   };
 
@@ -401,13 +410,8 @@ private:
     }
   }
 
-  /// Re-computes the IP checksum
-  void compute_checksum(uint8_t* data, uint8_t result[2]);
-
-  // Marks a given packet (ECN-CE)
-  void mark_l4s_packet(rlc_sdu sdu, unsigned hdr_len);
-
-  // Updates the marking probability when necessary
+  /// \brief Updates the marking probability when necessary
+  /// Method not in super class because it needs access to queue
   void update_l4s_probability(double period); 
 };
 

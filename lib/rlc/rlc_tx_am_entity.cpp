@@ -29,6 +29,9 @@
 #include "srsran/support/rtsan.h"
 #include "srsran/support/srsran_assert.h"
 #include "srsran/support/tracing/event_tracing.h"
+#include <cstdint>
+// DEBUG
+#include <iostream>
 
 using namespace srsran;
 
@@ -103,59 +106,6 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
   logger.log_info("RLC AM configured. {}", cfg);
 }
 
-  /// \brief Receives a modified IP header (ECN-CE marked)
-  /// Computes the checksum of this header
-  /// Returns the modified checksum made of 2 bytes (checksum on 2 bytes)
-  ///
-  /// \param data pointer towards the IP header
-  /// \param result table of 2 bytes, checksum put inside
- void rlc_tx_am_entity::compute_checksum(uint8_t* data, uint8_t result[2])
- {
-   uint32_t sum=0; 
-   // data equals to 4*5 bytes = 20 bytes
-   for (int i=0 ; i<10 ; i++){
-     // Concatenation
-     uint16_t word = (static_cast<uint16_t>(*(data+i*2)) << 8) | *(data+i*2+1);
-     sum+=word;
-     // Check if overflow
-     if (sum > 0xFFFF) {
-       sum = (sum & 0xFFFF) + (sum >> 16);
-      }
-    }
-      
-  uint16_t chksum;
-  chksum = ~sum;
-  // chksum as 2 distinct bytes
-  result[0]=(chksum >> 8) & 0xFF; // two strong bytes
-  result[1]=chksum & 0xFF; // two weak bytes
- }
-
-  /// \brief Marks a packet (ECN-CE)
-  /// \param sdu data coming from the above layer (PDCP)
-  /// \param hdr_len size of the PDCP header
- void rlc_tx_am_entity::mark_l4s_packet(rlc_sdu sdu, unsigned hdr_len){
-    // Extracts IP Header (5 lines = 5*4 bytes)
-    uint8_t* ip_header = sdu.buf.get_payload_(hdr_len + 0,4*5);
-    if (ip_header != nullptr){
-      // Set ECN-CE Flag (2nd byte)
-      *(ip_header+1) |= 0b00000011; 
-      sdu.buf.set_payload_(hdr_len + 1,*(ip_header+1));
-            
-      // Sets old checksum to 0 (11th & 12th byte)
-      *(ip_header + 4*2 + 2) &= 0b00000000;
-      *(ip_header + 4*2 + 3) &= 0b00000000;
-            
-      // Compute new Checksum
-      uint8_t checksum[2];
-      compute_checksum(ip_header,checksum);
-
-      // Modify checksum
-      sdu.buf.set_payload_(hdr_len + 4*2 + 2,*checksum);
-      sdu.buf.set_payload_(hdr_len + 4*2 + 3,*(checksum+1));          
-    }
-    // Free header
-    free(ip_header);
-  }
  
 
   /// @brief Updates the ECN-CE marking probability
@@ -213,6 +163,28 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
         {
           mark_l4s_packet(sdu,hdr_len);
         }
+
+        // TEMPORARY: READ RC-ID IN RTP PAYLOAD
+        int rc_id;
+        int ip_header_lenth = *version & 0x0f;
+        rc_id               = get_rc_id(sdu.buf,hdr_len,ip_header_lenth);
+        if(rc_id > -1){
+          // Simple update
+          if (proba_assoc.current_id == rc_id){ 
+            proba_assoc.nb_elements += 1;
+            proba_assoc.sum_probas  += l4s.marking_prob; 
+          }
+          else{
+            if(proba_assoc.current_id != -1){ // Compute + save proba related to old ID
+              float mean_proba  = proba_assoc.sum_probas / proba_assoc.nb_elements;
+              proba_assoc.associations[proba_assoc.current_id] = mean_proba;
+            }
+            proba_assoc.current_id  = rc_id;
+            proba_assoc.nb_elements = 1;
+            proba_assoc.sum_probas  = l4s.marking_prob;
+          }
+        }
+
       }
       free(tos);
     }
