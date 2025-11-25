@@ -25,7 +25,16 @@
 #include "../logging/scheduler_metrics_handler.h"
 #include "../srs/srs_scheduler.h"
 #include "../uci_scheduling/uci_scheduler_impl.h"
+#include "srsran/support/memory_pool/unbounded_object_pool.h"
+#include "fmt/format.h"
+#include <cstdint>
+#include <fstream>
+#include <filesystem>
+#include <memory>
+#include <chrono>
 
+
+namespace fs = std::filesystem; // To browse the CQI directory
 using namespace srsran;
 
 /// \brief More than one DL buffer occupancy update may be received per slot for the same UE and bearer. This class
@@ -124,15 +133,105 @@ private:
 static constexpr size_t COMMON_EVENT_LIST_SIZE = MAX_NOF_DU_UES * 2;
 static constexpr size_t CELL_EVENT_LIST_SIZE   = MAX_NOF_DU_UES * 2;
 
-ue_event_manager::ue_event_manager(ue_repository& ue_db_) :
+ue_event_manager::ue_event_manager(
+  ue_repository& ue_db_, const scheduler_ue_expert_config& expert_cfg_, std::shared_ptr<RIC> ric_) :
   ue_db(ue_db_),
+  expert_cfg(expert_cfg_),
   logger(srslog::fetch_basic_logger("SCHED")),
   common_events(COMMON_EVENT_LIST_SIZE),
-  dl_bo_mng(std::make_unique<ue_dl_buffer_occupancy_manager>(*this))
+  dl_bo_mng(std::make_unique<ue_dl_buffer_occupancy_manager>(*this)),
+  ric(std::move(ric_))
 {
+  if (expert_cfg.cqi_tracing_enabled) {
+    cqi_tracing_enabled = true;
+    read_cqi_traces(expert_cfg.cqi_trace_directory);
+  }
 }
 
-ue_event_manager::~ue_event_manager() {}
+void ue_event_manager::read_cqi_traces(const std::string& cqi_trace_directory) {
+  // LOAD ALL CQI FILES INSIDE THE CQI DIRECTORY
+  for (const auto& entry : fs::directory_iterator(cqi_trace_directory)) {
+    // IGNORE CURRENT FILE
+    if (!entry.is_regular_file()) continue;
+    
+    // OPEN CURRENT FILE
+    const std::string cqi_trace_filename = entry.path().string();
+    std::ifstream file(cqi_trace_filename);
+    logger.info("Reading CQI trace file: {}", cqi_trace_filename);
+    if (not file.good()) {
+      logger.error("Failed to open CQI trace file: {}", cqi_trace_filename);
+      return;
+    }
+    // BROWSE CURRENT FILE
+    std::vector<uint8_t> current_trace; // (current CQI trace: to be saved)
+    std::string line;
+    while (std::getline(file, line)) {
+      try {
+        int cqi_val = std::stoi(line);
+        current_trace.push_back(static_cast<uint8_t>(cqi_val));
+      } catch (const std::exception&) {
+        logger.warning("Invalid CQI value in trace file: '{}'", line);
+      }
+    }
+    // FINISH READING THE FILE
+    if (file.eof()) {
+      logger.info("Successfully read CQI trace file: {}", cqi_trace_filename);
+    } else {
+      logger.error("Error reading CQI trace file: {}", cqi_trace_filename);
+    }
+    // SAVE VALUES
+    cqi_traces.push_back(std::make_pair(std::move(current_trace), std::make_pair(-1, 0)));
+  }
+
+  // WILL TRIGGER A PROBLEM LATER ON
+  if(cqi_traces.empty()){
+    logger.error("No CQI file has been loaded");
+    std::exit(EXIT_FAILURE);
+  }
+}
+
+uint8_t ue_event_manager::get_next_cqi_from_trace(slot_point sl, uint16_t ue_index) {
+
+  // CQI FILE DEPENDS ON UE INDEX
+  int         index       = ue_index % cqi_traces.size();
+  auto&       pair        = cqi_traces[index];
+  const auto& cqi_trace   = pair.first;
+  auto         &[trace_index, last_slot] = pair.second;
+  // SELECTED TRACE IS EMPTY: EXIT
+  if (cqi_trace.empty()) {
+    logger.error("amir Selected CQI trace is empty.");
+    return 15;
+  }
+
+  // First time being called
+  if (trace_index == -1) {
+    last_slot = sl.to_uint();
+    trace_index = 0;
+    return cqi_trace[trace_index];
+  }
+
+  // NEW TIME SLOT: UPDATE 'FORWARD STEPS'
+  auto ls = uint32_t(last_slot);
+  int forward_steps;
+  if (sl.to_uint() >= ls) {
+    forward_steps = sl.to_uint() - ls;
+  } else {
+    forward_steps = sl.to_uint() + sl.nof_slots_per_system_frame() - ls;
+  }
+
+  if (forward_steps != 1) {
+    logger.error("amir Forward steps is not 1 for UE: {} current_slot: {} last_slot: {}", ue_index, sl.to_uint(), last_slot);
+    srsran_assert(false, "amir Forward steps should be 1");
+  }
+
+  last_slot = sl.to_uint();
+  trace_index = (trace_index + 1) % cqi_trace.size();
+
+  return cqi_trace[trace_index];
+}
+
+
+ue_event_manager::~ue_event_manager() = default;
 
 void ue_event_manager::handle_ue_creation(ue_config_update_event ev)
 {
@@ -784,6 +883,53 @@ void ue_event_manager::run(slot_point sl, du_cell_index_t cell_index)
 
   // Process carrier specific events.
   process_cell_specific(cell_index);
+
+  setup(sl, cell_index);
+}
+
+void ue_event_manager::setup(slot_point sl, du_cell_index_t cell_index) {
+  if (sl_counter == -1) {
+    sl_counter = sl.to_uint();
+    logger.warning("amir first slot_point is: {} ", sl.to_uint());
+  } else {
+    sl_counter += 1;
+  }
+  // todo: read from env
+  int start_slot = 40000;
+  if (sl_counter < start_slot) {
+    return;
+  } 
+  if (sl_counter == start_slot) {
+    logger.error("SENDING START");
+    auto t = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    auto start_msg = fmt::format(
+      "START slot: {} global_slot: {} epoch: {}", sl.to_uint(), sl_counter, t
+    );
+    ric->send_message_direct(start_msg);
+  } 
+  if (not expert_cfg.cqi_tracing_enabled) {
+    return;
+  }
+
+  for (auto & it : ue_db) {
+    auto *ue = it.get();
+    // READ CQI FOR UE
+    const uint16_t ue_index = static_cast<uint16_t>(ue->ue_index); // For the sake of clarity
+    auto cqi = get_next_cqi_from_trace(sl,ue_index);
+    ue_cell* ue_cc = ue->find_cell(cell_index);
+    auto x = csi_report_data  {
+      .first_tb_wideband_cqi = cqi,
+    };
+    ue_cc->handle_csi_report(x);
+    auto *metric_handler = du_cells[ue_cc->cell_index].metrics;
+    auto& ue_metric_context = metric_handler->get_ue_metric_context(ue->ue_index);
+    metric_handler->handle_csi_report(ue_metric_context, x);
+    // if (sl_counter % 50 == 0) {
+
+    //   // auto msg = fmt::format("CQI_UPDATE UE {} with {} at sl: {} global sl: {}", int(it->ue_index), cqi, sl.system_slot(), sl_counter);
+    //   // ric->send_message_direct(msg);
+    // }
+  }
 }
 
 void ue_event_manager::add_cell(const cell_creation_event& cell_ev)

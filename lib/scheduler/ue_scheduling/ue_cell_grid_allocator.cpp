@@ -28,16 +28,20 @@
 #include "ue_pdsch_alloc_param_candidate_searcher.h"
 #include "ue_pusch_alloc_param_candidate_searcher.h"
 #include "srsran/ran/pdcch/coreset.h"
+#include "srsran/ran/du_types.h"
 #include "srsran/ran/transform_precoding/transform_precoding_helpers.h"
 #include "srsran/scheduler/scheduler_dci.h"
 #include "srsran/support/error_handling.h"
+#include <memory>
 
 using namespace srsran;
 
 ue_cell_grid_allocator::ue_cell_grid_allocator(const scheduler_ue_expert_config& expert_cfg_,
                                                ue_repository&                    ues_,
-                                               srslog::basic_logger&             logger_) :
-  expert_cfg(expert_cfg_), ues(ues_), logger(logger_)
+                                               srslog::basic_logger&             logger_,
+                                               std::shared_ptr<RIC> ric_
+                                              ) :
+  expert_cfg(expert_cfg_), ues(ues_), logger(logger_), ric(std::move(ric_))
 {
 }
 

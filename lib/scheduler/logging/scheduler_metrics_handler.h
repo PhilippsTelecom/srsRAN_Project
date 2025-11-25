@@ -165,9 +165,13 @@ public:
   /// \brief Checks whether the metrics reporting is active.
   bool connected() const { return report_period != std::chrono::nanoseconds{0}; }
 
-private:
-  void handle_pucch_sinr(ue_metric_context& u, float sinr);
+  /// We must access it from method setup()
   void handle_csi_report(ue_metric_context& u, const csi_report_data& csi);
+
+  ue_metric_context& get_ue_metric_context(du_ue_index_t index);
+
+  private:
+  void handle_pucch_sinr(ue_metric_context& u, float sinr);
   void report_metrics();
   void handle_slot_result(const sched_result& slot_result, std::chrono::microseconds slot_decision_latency);
 };

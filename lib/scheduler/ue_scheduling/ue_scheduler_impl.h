@@ -34,7 +34,9 @@
 #include "ue_fallback_scheduler.h"
 #include "ue_repository.h"
 #include "ue_scheduler.h"
+#include "ric.h"
 #include "srsran/scheduler/config/scheduler_expert_config.h"
+#include <memory>
 #include <mutex>
 
 namespace srsran {
@@ -44,7 +46,7 @@ namespace srsran {
 class ue_scheduler_impl final : public ue_scheduler
 {
 public:
-  explicit ue_scheduler_impl(const scheduler_ue_expert_config& expert_cfg_);
+  explicit ue_scheduler_impl(const scheduler_ue_expert_config& expert_cfg_, std::shared_ptr<RIC> ric);
 
   void add_cell(const ue_scheduler_cell_params& params) override;
 
@@ -118,6 +120,8 @@ private:
   slot_point last_sl_ind;
 
   srslog::basic_logger& logger;
+
+  std::shared_ptr<RIC> ric;
 };
 
 } // namespace srsran

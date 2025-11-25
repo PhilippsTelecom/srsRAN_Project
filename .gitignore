@@ -1,2 +1,9 @@
 build/
 .vscode/
+.cache/**
+.clang-uml
+.idea
+diagrams/
+srsRAN_Kuber
+uhd/
+compile_commands.json

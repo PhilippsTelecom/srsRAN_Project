@@ -57,6 +57,12 @@ struct scheduler_ue_expert_config {
   interval<sch_mcs_index, true> dl_mcs;
   /// Sequence of redundancy versions used for PDSCH scheduling. Possible values: {0, 1, 2, 3}.
   std::vector<uint8_t> pdsch_rv_sequence;
+
+  /// Are CQI values used read from a CQI trace file?
+  bool cqi_tracing_enabled{false};
+  /// Path to the CQI traces directory.
+  std::string cqi_trace_directory{};   
+
   /// Range of allowed MCS indices for UL UE scheduling. To use a fixed mcs, set the minimum mcs equal to the maximum.
   interval<sch_mcs_index, true> ul_mcs;
   /// Sequence of redundancy versions used for PUSCH scheduling. Possible values: {0, 1, 2, 3}.

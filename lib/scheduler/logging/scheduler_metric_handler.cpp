@@ -111,6 +111,11 @@ void cell_metrics_handler::handle_csi_report(ue_metric_context& u, const csi_rep
   }
 }
 
+cell_metrics_handler::ue_metric_context& cell_metrics_handler::get_ue_metric_context(du_ue_index_t index)
+{
+  return ues[index];
+}
+
 void cell_metrics_handler::handle_dl_harq_ack(du_ue_index_t ue_index, bool ack, units::bytes tbs)
 {
   if (ues.contains(ue_index)) {

@@ -23,13 +23,24 @@
 #pragma once
 
 #include "../config/sched_config_manager.h"
-#include "../slicing/slice_scheduler.h"
+#include "../slicing/slice_scheduler.h" // Same as inter-slice ? 
 #include "ue.h"
+#include "ric.h"
 #include "ue_fallback_scheduler.h"
 #include "srsran/adt/concurrent_queue.h"
 #include "srsran/adt/mpmc_queue.h"
 #include "srsran/adt/unique_function.h"
 #include "srsran/ran/du_types.h"
+
+
+#include <cstdint>
+#include <sys/socket.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <cstring>
+#include <string>
+#include <iostream>
 
 namespace srsran {
 
@@ -58,7 +69,7 @@ class ue_event_manager final : public sched_ue_configuration_handler,
                                public scheduler_dl_buffer_state_indication_handler
 {
 public:
-  ue_event_manager(ue_repository& ue_db);
+  ue_event_manager(ue_repository& ue_db, const scheduler_ue_expert_config& expert_cfg_, std::shared_ptr<RIC> ric_);
   ~ue_event_manager() override;
 
   void add_cell(const cell_creation_event& cell_ev);
@@ -87,6 +98,10 @@ public:
   void run(slot_point sl, du_cell_index_t cell_index);
 
 private:
+  void read_cqi_traces(const std::string& cqi_trace_filename);
+  uint8_t get_next_cqi_from_trace(slot_point sl,uint16_t ue_index);
+  void setup(slot_point sl, du_cell_index_t cell_index);
+
   class ue_dl_buffer_occupancy_manager;
 
   struct common_event_t {
@@ -135,9 +150,6 @@ private:
                        std::optional<float>                   pucch_snr);
   void handle_csi(ue_cell& ue_cc, const csi_report_data& csi_rep);
 
-  ue_repository&        ue_db;
-  srslog::basic_logger& logger;
-
   /// List of added and configured cells.
   struct du_cell {
     const cell_configuration* cfg            = nullptr;
@@ -150,18 +162,39 @@ private:
     cell_metrics_handler*     metrics        = nullptr;
     scheduler_event_logger*   ev_logger      = nullptr;
   };
+
+  // INITIALIZED AT STARTUP
+  ue_repository&        ue_db;
+  const scheduler_ue_expert_config& expert_cfg;
+  srslog::basic_logger& logger;
+  /// Pending Events list common to all cells. We use this list for events that require synchronization across
+  /// UE carriers when CA is enabled (e.g. SR, BSR, reconfig).
+  common_event_queue common_events;
+  std::unique_ptr<ue_dl_buffer_occupancy_manager> dl_bo_mng;
+  std::shared_ptr<RIC> ric;
+
+
+  bool cqi_tracing_enabled  = false;
+  std::vector<std::pair<std::vector<uint8_t>,std::pair<int, int>>> cqi_traces;
+  int sl_counter = -1;
+
+
+  int sock_fd;
+  int setup_socket();
+  void send_message(std::string &msg);
+  sockaddr_un addr{};
+
+  
+
   std::array<du_cell, MAX_NOF_DU_CELLS> du_cells{};
 
   /// Pending Events list per cell.
   static_vector<cell_event_queue, MAX_NOF_DU_CELLS> cell_specific_events;
 
-  /// Pending Events list common to all cells. We use this list for events that require synchronization across
-  /// UE carriers when CA is enabled (e.g. SR, BSR, reconfig).
-  common_event_queue common_events;
 
   slot_point last_sl;
 
-  std::unique_ptr<ue_dl_buffer_occupancy_manager> dl_bo_mng;
+
 };
 
 } // namespace srsran
