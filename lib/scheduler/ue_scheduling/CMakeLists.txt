@@ -25,6 +25,7 @@ set(SOURCES
         ue_scheduler_impl.cpp
         ue_repository.cpp
         grant_params_selector.cpp
+        ric.cpp
 )
 
 add_library(ue_sched OBJECT ${SOURCES})

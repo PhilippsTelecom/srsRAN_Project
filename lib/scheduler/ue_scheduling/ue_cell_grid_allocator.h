@@ -28,8 +28,10 @@
 #include "../policy/ue_allocator.h"
 #include "../slicing/ran_slice_candidate.h"
 #include "grant_params_selector.h"
+#include "ric.h"
 #include "ue_repository.h"
 #include "srsran/scheduler/config/scheduler_expert_config.h"
+#include <memory>
 
 namespace srsran {
 
@@ -40,7 +42,9 @@ class ue_cell_grid_allocator final : public ue_pdsch_grid_allocator, public ue_p
 public:
   ue_cell_grid_allocator(const scheduler_ue_expert_config& expert_cfg_,
                          ue_repository&                    ues_,
-                         srslog::basic_logger&             logger_);
+                         srslog::basic_logger&             logger_,
+                         std::shared_ptr<RIC> ric
+                        );
 
   /// Adds a new cell to the UE allocator.
   void add_cell(du_cell_index_t           cell_index,
@@ -132,6 +136,8 @@ private:
 
   // Number of allocation attempts for DL and UL in the given slot.
   unsigned dl_attempts_count = 0, ul_attempts_count = 0;
+
+  std::shared_ptr<RIC> ric;
 };
 
 } // namespace srsran

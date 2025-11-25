@@ -28,6 +28,7 @@
 #include "ue_scheduling/ue_scheduler.h"
 #include "srsran/scheduler/config/scheduler_expert_config.h"
 #include "srsran/scheduler/mac_scheduler.h"
+#include "ue_scheduling/ric.h"
 
 namespace srsran {
 
@@ -88,6 +89,8 @@ private:
 
   /// Container of DU Cell Group-specific resources.
   slotted_id_table<du_cell_group_index_t, std::unique_ptr<ue_scheduler>, MAX_DU_CELL_GROUPS> groups;
+
+  std::shared_ptr<RIC> ric;
 };
 
 } // namespace srsran

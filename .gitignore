@@ -1,4 +1,8 @@
 .cache/**
-build/**
-build_8120ff/
+build*/**
+.clang-uml
+.idea
+diagrams/
+srsRAN_Kuber
+uhd/
 compile_commands.json

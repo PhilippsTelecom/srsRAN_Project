@@ -27,19 +27,24 @@
 #include "../support/sched_result_helpers.h"
 #include "../ue_context/ue_drx_controller.h"
 #include "grant_params_selector.h"
+#include "ric.h"
 #include "ue_pdsch_alloc_param_candidate_searcher.h"
 #include "ue_pusch_alloc_param_candidate_searcher.h"
 
+#include "srsran/ran/du_types.h"
 #include "srsran/ran/transform_precoding/transform_precoding_helpers.h"
 #include "srsran/scheduler/result/dci_info.h"
 #include "srsran/support/error_handling.h"
+#include <memory>
 
 using namespace srsran;
 
 ue_cell_grid_allocator::ue_cell_grid_allocator(const scheduler_ue_expert_config& expert_cfg_,
                                                ue_repository&                    ues_,
-                                               srslog::basic_logger&             logger_) :
-  expert_cfg(expert_cfg_), ues(ues_), logger(logger_)
+                                               srslog::basic_logger&             logger_,
+                                               std::shared_ptr<RIC> ric_
+                                              ) :
+  expert_cfg(expert_cfg_), ues(ues_), logger(logger_), ric(std::move(ric_))
 {
 }
 
@@ -645,6 +650,7 @@ dl_alloc_result ue_cell_grid_allocator::allocate_dl_grant(du_cell_index_t       
     }
 
     mcs_tbs_info = compute_dl_mcs_tbs(*grant_params.pdsch_cfg, adjusted_mcs, crbs.length(), contains_dc);
+    // logger.error("amir for UE {} mcs: {} tbs: {}", fmt::underlying(u.ue_index), mcs_tbs_info->mcs, mcs_tbs_info->tbs);
 
     // If there is not MCS-TBS info, it means no MCS exists such that the effective code rate is <= 0.95.
     if (not mcs_tbs_info.has_value()) {

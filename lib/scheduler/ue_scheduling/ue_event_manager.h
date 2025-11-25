@@ -25,12 +25,23 @@
 #include "../config/sched_config_manager.h"
 #include "../slicing/inter_slice_scheduler.h"
 #include "../ue_context/ue.h"
+#include "ric.h"
 #include "ue_fallback_scheduler.h"
 #include "srsran/adt/concurrent_queue.h"
 #include "srsran/adt/mpmc_queue.h"
 #include "srsran/adt/unique_function.h"
 #include "srsran/ran/du_types.h"
 #include "srsran/ran/slot_point.h"
+
+
+#include <cstdint>
+#include <sys/socket.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <cstring>
+#include <string>
+#include <iostream>
 
 namespace srsran {
 
@@ -61,7 +72,7 @@ class ue_event_manager final : public sched_ue_configuration_handler,
                                public scheduler_positioning_handler
 {
 public:
-  ue_event_manager(ue_repository& ue_db, const scheduler_ue_expert_config& expert_cfg_);
+  ue_event_manager(ue_repository& ue_db, const scheduler_ue_expert_config& expert_cfg_, std::shared_ptr<RIC> ric_);
   ~ue_event_manager() override;
 
   void add_cell(const cell_creation_event& cell_ev);
@@ -167,8 +178,15 @@ private:
 
   ue_repository&        ue_db;
   bool cqi_tracing_enabled  = false;
-  std::vector<std::pair<std::vector<uint8_t>,uint32_t>> cqi_traces;
-  uint32_t forward_steps    = 1;
+  std::vector<std::pair<std::vector<uint8_t>,std::pair<int, int>>> cqi_traces;
+  int sl_counter = -1;
+
+
+  int sock_fd;
+  int setup_socket();
+  void send_message(std::string &msg);
+  sockaddr_un addr{};
+
 
   const scheduler_ue_expert_config& expert_cfg;
 
@@ -188,6 +206,8 @@ private:
   slot_point last_sl;
 
   std::unique_ptr<ue_dl_buffer_occupancy_manager> dl_bo_mng;
+
+  std::shared_ptr<RIC> ric;
 };
 
 } // namespace srsran

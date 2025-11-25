@@ -23,14 +23,17 @@
 #include "ue_scheduler_impl.h"
 #include "../logging/scheduler_metrics_handler.h"
 #include "../policy/slice_allocator.h"
+#include <memory>
+#include <utility>
 
 using namespace srsran;
 
-ue_scheduler_impl::ue_scheduler_impl(const scheduler_ue_expert_config& expert_cfg_) :
+ue_scheduler_impl::ue_scheduler_impl(const scheduler_ue_expert_config& expert_cfg_, std::shared_ptr<RIC> ric_) :
   expert_cfg(expert_cfg_),
-  ue_alloc(expert_cfg, ue_db, srslog::fetch_basic_logger("SCHED")),
-  event_mng(ue_db, expert_cfg_),
-  logger(srslog::fetch_basic_logger("SCHED"))
+  ue_alloc(expert_cfg, ue_db, srslog::fetch_basic_logger("SCHED"), ric_),
+  event_mng(ue_db, expert_cfg_, ric_),
+  logger(srslog::fetch_basic_logger("SCHED")),
+  ric(std::move(ric_))
 {
 }
 

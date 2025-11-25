@@ -26,9 +26,16 @@
 #include "../srs/srs_scheduler.h"
 #include "../support/sr_helper.h"
 #include "../uci_scheduling/uci_scheduler_impl.h"
+#include "ric.h"
 #include "srsran/support/memory_pool/unbounded_object_pool.h"
+#include "fmt/format.h"
+#include <cstdint>
 #include <fstream>
 #include <filesystem>
+#include <memory>
+#include <chrono>
+
+
 
 namespace fs = std::filesystem; // To browse the CQI directory
 using namespace srsran;
@@ -210,18 +217,21 @@ private:
 static constexpr size_t COMMON_EVENT_LIST_SIZE = MAX_NOF_DU_UES * 2;
 static constexpr size_t CELL_EVENT_LIST_SIZE   = MAX_NOF_DU_UES * 2;
 
-ue_event_manager::ue_event_manager(ue_repository& ue_db_, const scheduler_ue_expert_config& expert_cfg_) :
+ue_event_manager::ue_event_manager(
+  ue_repository& ue_db_, const scheduler_ue_expert_config& expert_cfg_, std::shared_ptr<RIC> ric_) :
   ue_db(ue_db_),
   expert_cfg(expert_cfg_),
   logger(srslog::fetch_basic_logger("SCHED")),
   ind_pdu_pool(std::make_unique<pdu_indication_pool>()),
   common_events(COMMON_EVENT_LIST_SIZE),
-  dl_bo_mng(std::make_unique<ue_dl_buffer_occupancy_manager>(*this))
+  dl_bo_mng(std::make_unique<ue_dl_buffer_occupancy_manager>(*this)),
+  ric(std::move(ric_))
 {
   if (expert_cfg.cqi_tracing_enabled) {
     cqi_tracing_enabled = true;
     read_cqi_traces(expert_cfg.cqi_trace_directory);
   }
+
 }
 
 void ue_event_manager::read_cqi_traces(const std::string& cqi_trace_directory) {
@@ -256,7 +266,7 @@ void ue_event_manager::read_cqi_traces(const std::string& cqi_trace_directory) {
       logger.error("Error reading CQI trace file: {}", cqi_trace_filename);
     }
     // SAVE VALUES
-    cqi_traces.push_back(std::make_pair(std::move(current_trace),0));
+    cqi_traces.push_back(std::make_pair(std::move(current_trace), std::make_pair(-1, 0)));
   }
 
   // WILL TRIGGER A PROBLEM LATER ON
@@ -269,54 +279,41 @@ void ue_event_manager::read_cqi_traces(const std::string& cqi_trace_directory) {
 uint8_t ue_event_manager::get_next_cqi_from_trace(slot_point sl, uint16_t ue_index) {
 
   // CQI FILE DEPENDS ON UE INDEX
-  int index                       = ue_index % cqi_traces.size();
-  auto& pair                      = cqi_traces[index];
-  const auto& cqi_trace           = pair.first;
-  int trace_index                 = pair.second;
+  int         index       = ue_index % cqi_traces.size();
+  auto&       pair        = cqi_traces[index];
+  const auto& cqi_trace   = pair.first;
+  auto         &[trace_index, last_slot] = pair.second;
   // SELECTED TRACE IS EMPTY: EXIT
   if (cqi_trace.empty()) {
-    logger.error("Selected CQI trace is empty.");
+    logger.error("amir Selected CQI trace is empty.");
     return 15;
   }
 
-  
-  if (first_time) {
-    cqi_last_sl = sl;
-    first_time = false; 
-    return 15;
+  // First time being called
+  if (trace_index == -1) {
+    last_slot = sl.to_uint();
+    trace_index = 0;
+    return cqi_trace[trace_index];
   }
+
   // NEW TIME SLOT: UPDATE 'FORWARD STEPS'
-  if (cqi_last_sl != sl){ 
-    if (sl.to_uint() >= cqi_last_sl.to_uint()) {
-      forward_steps = sl.to_uint() - cqi_last_sl.to_uint();
-    } else {
-      forward_steps = sl.to_uint() + sl.nof_slots_per_system_frame() - cqi_last_sl.to_uint();
-    }
-    // SHOULD NOT HAPPEN: TWO DIFFERENT SLOTS HAVING SAME TIME
-    if (forward_steps == 0){
-      logger.error("[Next CQI] Forward Step is equal to 0");
-      return cqi_trace[trace_index % cqi_trace.size()];
-    }
-    // SHOULD NOT HAPPEN: TIME DIFFERENCE HIGHER THAN 1
-    if (forward_steps > 1) {
-      logger.warning("slot_point jumped more than 1 timeslot. cqi_last_sl: {} sl: {} steps: {}", cqi_last_sl.system_slot(), sl.system_slot(), forward_steps);
-    }
-    // UPDATE LAST SLOT
-    cqi_last_sl = sl;
+  auto ls = uint32_t(last_slot);
+  int forward_steps;
+  if (sl.to_uint() >= ls) {
+    forward_steps = sl.to_uint() - ls;
+  } else {
+    forward_steps = sl.to_uint() + sl.nof_slots_per_system_frame() - ls;
   }
 
-  // GENERAL CASE: WE ARE GOING THROUGH ALL UEs
-  // MOVE FROM 'FORWARD_STEPS' IN TRACE 
-  uint32_t sum = 0;
-  for (uint32_t i = 0; i < forward_steps; i++) {
-    sum += cqi_trace[trace_index];
-    trace_index = (trace_index + 1) % cqi_trace.size();
+  if (forward_steps != 1) {
+    logger.error("amir Forward steps is not 1 for UE: {} current_slot: {} last_slot: {}", ue_index, sl.to_uint(), last_slot);
+    srsran_assert(false, "amir Forward steps should be 1");
   }
-  // SAVE UPDATED TRACE INDEX
-  cqi_traces[index].second = trace_index;
 
-  sum = sum / forward_steps;
-  return sum;
+  last_slot = sl.to_uint();
+  trace_index = (trace_index + 1) % cqi_trace.size();
+
+  return cqi_trace[trace_index];
 }
 
 
@@ -1055,6 +1052,29 @@ void ue_event_manager::run(slot_point sl, du_cell_index_t cell_index)
 }
 
 void ue_event_manager::setup(slot_point sl, du_cell_index_t cell_index) {
+  if (sl_counter == -1) {
+    sl_counter = sl.to_uint();
+    logger.warning("amir first slot_point is: {} ", sl.to_uint());
+  } else {
+    sl_counter += 1;
+  }
+  // todo: read from env
+  int start_slot = 40000;
+  if (sl_counter < start_slot) {
+    return;
+  } 
+  if (sl_counter == start_slot) {
+    logger.error("SENDING START");
+    auto t = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    auto start_msg = fmt::format(
+      "START slot: {} global_slot: {} epoch: {}", sl.to_uint(), sl_counter, t
+    );
+    ric->send_message_direct(start_msg);
+  } 
+  if (not expert_cfg.cqi_tracing_enabled) {
+    return;
+  }
+
   for (auto & it : ue_db) {
     auto *ue = it.get();
     // READ CQI FOR UE
@@ -1069,6 +1089,11 @@ void ue_event_manager::setup(slot_point sl, du_cell_index_t cell_index) {
     auto *metric_handler = du_cells[ue_cc->cell_index].metrics;
     auto& ue_metric_context = metric_handler->ues[ue->ue_index];
     metric_handler->handle_csi_report(ue_metric_context, x);
+    // if (sl_counter % 50 == 0) {
+
+    //   // auto msg = fmt::format("CQI_UPDATE UE {} with {} at sl: {} global sl: {}", int(it->ue_index), cqi, sl.system_slot(), sl_counter);
+    //   // ric->send_message_direct(msg);
+    // }
   }
 }
 
