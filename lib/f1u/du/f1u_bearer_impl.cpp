@@ -21,6 +21,7 @@
  */
 
 #include "f1u_bearer_impl.h"
+#include "srsran/nru/nru_message.h"
 
 using namespace srsran;
 using namespace srs_du;
@@ -60,6 +61,8 @@ void f1u_bearer_impl::handle_sdu(byte_buffer_chain sdu)
 
   // attach data delivery status (if anything has changed)
   fill_data_delivery_status(msg);
+  // attach data delivery status (if anything has changed)
+  fill_assistance_information(msg);
 
   tx_pdu_notifier.on_new_pdu(std::move(msg));
 }
@@ -92,14 +95,34 @@ void f1u_bearer_impl::handle_pdu_impl(nru_dl_message msg)
     logger.log_debug("Delivering T-PDU. size={}", msg.t_pdu.length());
     rx_sdu_notifier.on_new_sdu(std::move(msg.t_pdu), msg.dl_user_data.retransmission_flag);
   }
+
+  nru_ul_message uplink_feedback;
+  bool send_feedback = false; // At least one report
   // handle polling of delivery status report
   if (msg.dl_user_data.report_polling) {
-    if (send_data_delivery_status()) {
+    bool res = fill_data_delivery_status(uplink_feedback);
+    send_feedback |= res;
+    if (res) {
       logger.log_debug("Report polling flag is set. Sent data delivery status");
     } else {
       logger.log_warning("Report polling flag is set. No data to be sent in data delivery status");
     }
   }
+  // handle polling of assistance information report
+  if (msg.dl_user_data.assist_info_report_polling_flag) {
+    bool res = fill_assistance_information(uplink_feedback);
+    send_feedback |= res;
+    if (res) {
+      logger.log_debug("Assistance Information polling flag is set. Sent data delivery status");
+    } else {
+      logger.log_warning("Assistance Information polling flag is set. No data to be sent in data delivery status");
+    }
+  }
+  // Send feedback "delivery status report" OR "assistance information report"
+  if (send_feedback){
+    tx_pdu_notifier.on_new_pdu(std::move(uplink_feedback));
+  }
+
   // handle discard notifications
   if (msg.dl_user_data.discard_blocks.has_value()) {
     nru_pdcp_sn_discard_blocks& blocks     = msg.dl_user_data.discard_blocks.value();
@@ -113,6 +136,13 @@ void f1u_bearer_impl::handle_pdu_impl(nru_dl_message msg)
       }
     }
   }
+}
+
+void f1u_bearer_impl::handle_congestion_information(uint16_t congestion_information)
+{
+  // This function may be called from pcell_executor, since it only writes to an atomic variable
+  logger.log_debug("Storing ={}",congestion_information);
+  latest_congestion_information.store(congestion_information, std::memory_order_relaxed);
 }
 
 void f1u_bearer_impl::handle_transmit_notification(uint32_t highest_pdcp_sn, uint32_t desired_buf_size)
@@ -142,6 +172,18 @@ void f1u_bearer_impl::handle_delivery_retransmitted_notification(uint32_t highes
   // This function may be called from pcell_executor, since it only writes to an atomic variable
   logger.log_debug("Storing highest successfully delivered retransmitted pdcp_sn={}", highest_pdcp_sn);
   highest_delivered_retransmitted_pdcp_sn.store(highest_pdcp_sn, std::memory_order_relaxed);
+}
+
+bool f1u_bearer_impl::fill_congestion_information(nru_assistance_information& assistance)
+{
+  uint16_t cur_cong_info = latest_congestion_information.load(std::memory_order_relaxed);
+  logger.log_debug("Adding congestion information for DRB {}", cur_cong_info);
+  assistance.dl_cong_info = cur_cong_info;
+  if (cur_cong_info != notif_latest_congestion_information) {
+    notif_latest_congestion_information = cur_cong_info;
+    return true;
+  }
+  return false;
 }
 
 bool f1u_bearer_impl::fill_desired_buffer_size_of_data_radio_bearer(nru_dl_data_delivery_status& status)
@@ -222,7 +264,7 @@ bool f1u_bearer_impl::fill_highest_delivered_retransmitted_pdcp_sn(nru_dl_data_d
   return false;
 }
 
-void f1u_bearer_impl::fill_data_delivery_status(nru_ul_message& msg)
+bool f1u_bearer_impl::fill_data_delivery_status(nru_ul_message& msg)
 {
   nru_dl_data_delivery_status status      = {};
   bool                        value_added = false;
@@ -237,27 +279,36 @@ void f1u_bearer_impl::fill_data_delivery_status(nru_ul_message& msg)
     logger.log_debug("Adding data delivery status to NR-U message");
     msg.data_delivery_status = std::move(status);
   }
-
-  // restart UL notification timer
-  ul_notif_timer.run();
+  return value_added;
 }
 
-bool f1u_bearer_impl::send_data_delivery_status()
-{
-  nru_ul_message msg = {};
-  fill_data_delivery_status(msg);
-  if (!msg.data_delivery_status.has_value()) {
-    return false;
+bool f1u_bearer_impl::fill_assistance_information(nru_ul_message& msg){
+  nru_assistance_information status      = {};
+  bool                        value_added = false;
+  
+  value_added |= fill_congestion_information(status);
+
+  if (value_added) {
+    logger.log_debug("Adding Assistance Information to NR-U message");
+    msg.assistance_information = std::move(status);
   }
-  tx_pdu_notifier.on_new_pdu(std::move(msg));
-  return true;
+  return value_added;
 }
 
 void f1u_bearer_impl::on_expired_ul_notif_timer()
 {
-  if (send_data_delivery_status()) {
+  nru_ul_message msg = {};
+  bool has_value = false;
+  has_value |= fill_data_delivery_status(msg);
+  has_value |= fill_assistance_information(msg);
+
+  // Sends the message if we have at least on of the reports (Data Delivery Status OR Assistance Information)
+  if (has_value) {
+    tx_pdu_notifier.on_new_pdu(std::move(msg));
     logger.log_debug("UL notification timer expired. Sent data delivery status");
   } else {
     logger.log_debug("UL notification timer expired. No data to be sent in data delivery status");
   }
+  // restart UL notification timer
+  ul_notif_timer.run();
 }

@@ -34,6 +34,17 @@ class f1u_tx_delivery_handler
 public:
   virtual ~f1u_tx_delivery_handler() = default;
 
+  /// \brief Handles an update of the ECN-CE MArking Probability from lower layers (i.e. from RLC UM/AM).
+  /// TS 138.435 Section 5.5.3.62 'DL Congestion Information'
+  ///
+  /// This function is quick and shall be called directly from pcell_executor to avoid excessive transitions across
+  /// executors.
+  ///
+  /// Safe execution from: pcell_executor
+  ///
+  /// \param ecn_ce_proba the ECN-CE marking probability (can also be the congestion level percentage)
+  virtual void handle_congestion_information(uint16_t congestion_information) = 0;
+
   /// \brief Handles a transmit notification from lower layers (i.e. from RLC UM/AM).
   ///
   /// Notification must be performed in ascending order of PDCP sequence numbers. It is the responsibility of the

@@ -27,6 +27,7 @@
 #include "srsran/f1u/du/f1u_config.h"
 #include "srsran/f1u/du/f1u_rx_sdu_notifier.h"
 #include "srsran/f1u/du/f1u_tx_pdu_notifier.h"
+#include "srsran/nru/nru_message.h"
 #include "srsran/ran/rb_id.h"
 #include "srsran/ran/up_transport_layer_info.h"
 #include "srsran/support/timers.h"
@@ -56,6 +57,7 @@ public:
   f1u_rx_pdu_handler&      get_rx_pdu_handler() override { return *this; }
 
   void handle_sdu(byte_buffer_chain sdu) override;
+  void handle_congestion_information(uint16_t congestion_information) override;
   void handle_transmit_notification(uint32_t highest_pdcp_sn, uint32_t desired_buf_size) override;
   void handle_delivery_notification(uint32_t highest_pdcp_sn) override;
   void handle_retransmit_notification(uint32_t highest_pdcp_sn) override;
@@ -79,12 +81,15 @@ private:
 
   /// Sentinel value representing a not-yet set PDCP SN
   static constexpr uint32_t unset_pdcp_sn = UINT32_MAX;
+  static constexpr uint16_t unset_proba   = UINT16_MAX;
 
   /// Uplink notification timer that triggers periodic reports of highest delivered/transmitted PDCP SN towards upper
   /// layers. The purpose of this timer is to avoid excessive uplink notifications for every PDCP SN that is notified by
   /// lower layers.
   unique_timer ul_notif_timer;
 
+  /// Holds the most recent information of the congestion (or ECN-CE)
+  std::atomic<uint16_t> latest_congestion_information;
   /// Holds the most recent information of the available space in the RLC SDU queue
   std::atomic<uint32_t> desired_buffer_size_for_data_radio_bearer;
   /// Holds the most recent highest transmitted PDCP SN that is frequently updated by lower layers (i.e. by RLC AM/UM)
@@ -104,15 +109,21 @@ private:
   uint32_t notif_highest_retransmitted_pdcp_sn = unset_pdcp_sn;
   /// Holds the last highest delivered retransmitted PDCP SN that was reported to upper layers (i.e. towards CU-UP)
   uint32_t notif_highest_delivered_retransmitted_pdcp_sn = unset_pdcp_sn;
+  /// Holds the last highest delivered retransmitted PDCP SN that was reported to upper layers (i.e. towards CU-UP)
+  uint16_t notif_latest_congestion_information = unset_proba;
 
+  // Related to Data Delivery Status
   bool fill_desired_buffer_size_of_data_radio_bearer(nru_dl_data_delivery_status& status);
   bool fill_highest_transmitted_pdcp_sn(nru_dl_data_delivery_status& status);
   bool fill_highest_delivered_pdcp_sn(nru_dl_data_delivery_status& status);
   bool fill_highest_retransmitted_pdcp_sn(nru_dl_data_delivery_status& status);
   bool fill_highest_delivered_retransmitted_pdcp_sn(nru_dl_data_delivery_status& status);
-  void fill_data_delivery_status(nru_ul_message& msg);
-  bool send_data_delivery_status();
-
+  bool fill_data_delivery_status(nru_ul_message& msg);
+  
+  // Related to Assistance Information
+  bool fill_congestion_information(nru_assistance_information& assistance);
+  bool fill_assistance_information(nru_ul_message& msg);
+  
   void handle_pdu_impl(nru_dl_message msg);
 
   void on_expired_ul_notif_timer();

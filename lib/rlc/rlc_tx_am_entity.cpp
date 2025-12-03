@@ -174,6 +174,11 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
       else tmp_mark_prob = est_delay < MIN_DELAY_QUEUE ? 0 : float(est_delay - MIN_DELAY_QUEUE) / (MAX_DELAY_QUEUE - MIN_DELAY_QUEUE) * 100;
       l4s.marking_prob = int(L4S_ALPHA * tmp_mark_prob + (1-L4S_ALPHA) * l4s.marking_prob);
     }
+    // Updates the Marking Probability for upper layer (PDCP through F1 Interface)
+    // Must be between 0 and 10,000 (cf TS 138.425 '5.5.3.62')
+    // Max proba = 100 _ 100 * 100 = 10.000
+    uint16_t dl_cong_info = l4s.marking_prob * 100;
+    upper_dn.update_cong_info(dl_cong_info);
   }
 
 

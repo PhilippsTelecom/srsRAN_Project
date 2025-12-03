@@ -134,6 +134,20 @@ void f1u_bearer_impl::handle_pdu_impl(nru_ul_message msg)
       }
     }
   }
+
+  // handle assistance information
+  if (msg.assistance_information.has_value()){
+    nru_assistance_information& status = msg.assistance_information.value();
+    // Read Congestion Information
+    if (status.dl_cong_info.has_value()) {
+      uint16_t dl_cong_info = status.dl_cong_info.value();
+      logger.log_debug("Notifying about congestion Information={}", dl_cong_info);
+      // if (not dl_exec.defer(
+      //         [this, pdcp_sn]() { rx_delivery_notifier.on_delivery_retransmitted_notification(pdcp_sn); })) {
+      //   logger.log_warning("Could not pass highest retransmitted notification to PDCP");
+      // }
+    }
+  }
 }
 
 void f1u_bearer_impl::handle_sdu(byte_buffer sdu, bool is_retx)

@@ -39,6 +39,7 @@ public:
   virtual void on_delivery_notification(uint32_t highest_pdcp_sn)                = 0;
   virtual void on_retransmit_notification(uint32_t highest_pdcp_sn)              = 0;
   virtual void on_delivery_retransmitted_notification(uint32_t highest_pdcp_sn)  = 0;
+  virtual void on_congestion_information(uint16_t cong_info)                     = 0;
 };
 
 } // namespace srs_cu_up

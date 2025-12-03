@@ -24,6 +24,7 @@
 
  #include "srsran/adt/byte_buffer.h"
  #include "srsran/security/security.h"
+#include <cstdint>
  
  /*
   * This file will hold the interfaces and notifiers for the PDCP entity.
@@ -124,6 +125,12 @@
    ///
    /// \param highest_sn Highest in a sequence delivered retransmitted PDCP PDU sequence number.
    virtual void handle_delivery_retransmitted_notification(uint32_t highest_sn) = 0;
+
+   /// \brief Informs the PDCP about the congestion level (ECN-CE marking or Congestion percentage)
+   /// Will be used to perform packet marking. 
+   ///
+   /// \param cong_info proportion of packet supposed to be marked (or congestion percentage)
+   virtual void handle_congestion_information(uint16_t cong_info) = 0;
  };
  
  /// This interface represents the data entry point of the transmitting side of a PDCP entity.

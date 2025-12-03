@@ -99,6 +99,14 @@ class rlc_tx_upper_layer_data_notifier
 public:
   virtual ~rlc_tx_upper_layer_data_notifier() = default;
 
+  /// \brief Informs upper layer about the current marking ECN-CE Marking probability
+  /// Is only overrided by 'rlc_f1u_tx_data_notifier' (and not rlc_f1c_tx_data_notifier)
+  ///
+  /// \param ecn_ce_proba The marking probability 
+  virtual void update_cong_info(uint16_t cong_info)
+  {
+  }
+
   /// \brief Informs upper layer about the highest PDCP PDU sequence number of the PDCP PDU that was transmitted to the
   /// lower layers.
   ///

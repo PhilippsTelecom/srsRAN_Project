@@ -28,6 +28,7 @@
 #include "srsran/pdcp/pdcp_rx.h"
 #include "srsran/pdcp/pdcp_tx.h"
 #include "srsran/srslog/srslog.h"
+#include <cstdint>
 
 namespace srsran {
 namespace srs_cu_up {
@@ -74,6 +75,10 @@ public:
   void on_delivery_retransmitted_notification(uint32_t highest_pdcp_sn) override
   {
     pdcp_tx_handler->handle_delivery_retransmitted_notification(highest_pdcp_sn);
+  }
+
+  void on_congestion_information(uint16_t cong_info) override{
+    pdcp_tx_handler->null;
   }
 
 private:

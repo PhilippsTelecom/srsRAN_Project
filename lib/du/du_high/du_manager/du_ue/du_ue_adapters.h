@@ -30,6 +30,7 @@
 #include "srsran/mac/mac_ue_control_information_handler.h"
 #include "srsran/rlc/rlc_rx.h"
 #include "srsran/rlc/rlc_tx.h"
+#include <cstdint>
 
 namespace srsran {
 namespace srs_du {
@@ -177,6 +178,15 @@ public:
   void connect(f1u_tx_delivery_handler& handler_) { handler.store(&handler_, std::memory_order_relaxed); }
 
   void disconnect();
+
+  /// As for now, we only update the marking probability through the F1-U interface
+  /// We override this method from the parent class (because it does not do anything). 
+  void update_cong_info(uint16_t cong_info) override
+  {
+    f1u_tx_delivery_handler* h = handler.load(std::memory_order_relaxed);
+    srsran_assert(h != nullptr, "RLC to F1-U TX data notifier is disconnected");
+    h->handle_congestion_information(cong_info);
+  }
 
   void on_transmitted_sdu(uint32_t max_deliv_pdcp_sn, uint32_t desired_buf_size) override
   {

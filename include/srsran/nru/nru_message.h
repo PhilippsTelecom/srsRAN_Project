@@ -182,6 +182,21 @@ struct nru_dl_data_delivery_status {
 struct nru_assistance_information {
   // TODO: NR-U Assistance Information is not implemented
 
+  // Delay measured at the corresponding node in ms for the concerned DRB over Uu interface. 
+  // TS 38.435 Section 5.5.3.48 (resp. 5.5.3.49)
+  std::optional<uint32_t> ul_delay_result;
+  std::optional<uint32_t> dl_delay_result;
+
+  // Indicates the percentage of IP packets up to two decimal points that should be ECN marked (for the case of ECN marking request). 
+  // TS 38.425 Section 5.5.3.61 (resp. 5.5.3.62)
+  std::optional<uint16_t> ul_cong_info;
+  std::optional<uint16_t> dl_cong_info;
+
+  // The value of available bitrate for the QoS flow. The  unit is kbps. 
+  // TS 38.425 Section 5.5.3.67 (resp. 5.5.3.68)
+  std::optional<uint32_t> ul_avail_bitrate;
+  std::optional<uint32_t> dl_avail_bitrate;
+
   bool operator==(const nru_assistance_information& other) const { return true; }
 };
 
