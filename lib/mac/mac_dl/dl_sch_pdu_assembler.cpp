@@ -326,7 +326,9 @@ shared_transport_block dl_sch_pdu_assembler::assemble_newtx_pdu(rnti_t          
                                                                 harq_id_t             h_id,
                                                                 unsigned              tb_idx,
                                                                 const dl_msg_tb_info& tb_info,
-                                                                unsigned              tb_size_bytes)
+                                                                unsigned              tb_size_bytes,
+                                                                slot_point sl
+                                                              )
 {
   du_ue_index_t ue_idx = ue_mng.get_ue_index(rnti);
   if (ue_idx == INVALID_DU_UE_INDEX) {
@@ -351,7 +353,7 @@ shared_transport_block dl_sch_pdu_assembler::assemble_newtx_pdu(rnti_t          
   // Encode added subPDUs.
   for (const dl_msg_lc_info& sched_lch : tb_info.lc_chs_to_sched) {
     if (sched_lch.lcid.is_sdu()) {
-      assemble_sdus(ue_pdu, rnti, sched_lch, pdu_logger);
+      assemble_sdus(ue_pdu, rnti, sched_lch, pdu_logger, sl);
     } else {
       assemble_ce(ue_pdu, rnti, sched_lch, pdu_logger);
     }
@@ -374,13 +376,14 @@ shared_transport_block dl_sch_pdu_assembler::assemble_newtx_pdu(rnti_t          
 void dl_sch_pdu_assembler::assemble_sdus(dl_sch_pdu&           ue_pdu,
                                          rnti_t                rnti,
                                          const dl_msg_lc_info& lc_grant_info,
-                                         pdu_log_builder&      pdu_logger)
+                                         pdu_log_builder&      pdu_logger,
+                                         slot_point sl
+                                        )
 {
   // Fetch RLC Bearer.
   const lcid_t        lcid   = lc_grant_info.lcid.to_lcid();
   mac_sdu_tx_builder* bearer = ue_mng.get_lc_sdu_builder(rnti, lcid);
   srsran_sanity_check(bearer != nullptr, "Scheduler is allocating inexistent bearers");
-  int first_pull              = 1; 
 
   const unsigned total_space =
       std::min(get_mac_sdu_required_bytes(lc_grant_info.sched_bytes), ue_pdu.nof_empty_bytes());
@@ -403,8 +406,7 @@ void dl_sch_pdu_assembler::assemble_sdus(dl_sch_pdu&           ue_pdu,
     }
 
     // Fetch MAC Tx SDU from upper layers and write inplace, into the buffer provided by the SDU encoder.
-    size_t sdu_actual_len = bearer->on_new_tx_sdu(sdu_enc.sdu_buffer(),first_pull);
-    first_pull = 0; 
+    size_t sdu_actual_len = bearer->on_new_tx_sdu(sdu_enc.sdu_buffer(), sl);
     if (sdu_actual_len == 0) {
       // The RLC Tx window is full or the RLC buffer is empty.
       logger.debug("ue={} rnti={} lcid={}: Unable to encode MAC SDU in MAC opportunity of size={}.",

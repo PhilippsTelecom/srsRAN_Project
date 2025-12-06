@@ -123,7 +123,9 @@ public:
                                             harq_id_t             h_id,
                                             unsigned              tb_idx,
                                             const dl_msg_tb_info& tb_info,
-                                            unsigned              tb_size_bytes);
+                                            unsigned              tb_size_bytes,
+                                            slot_point sl
+                                          );
 
   /// \brief Fetches and assembles MAC DL-SCH PDU that corresponds to a HARQ retransmission.
   ///
@@ -138,7 +140,7 @@ private:
   class pdu_log_builder;
 
   /// Assemble MAC SDUs for a given LCID.
-  void assemble_sdus(dl_sch_pdu& ue_pdu, rnti_t rnti, const dl_msg_lc_info& subpdu, pdu_log_builder& pdu_logger);
+  void assemble_sdus(dl_sch_pdu& ue_pdu, rnti_t rnti, const dl_msg_lc_info& subpdu, pdu_log_builder& pdu_logger, slot_point sl);
 
   /// Assemble MAC subPDU with a CE.
   void assemble_ce(dl_sch_pdu& ue_pdu, rnti_t rnti, const dl_msg_lc_info& subpdu, pdu_log_builder& pdu_logger);

@@ -28,6 +28,7 @@
 #include "srsran/f1u/du/f1u_rx_sdu_notifier.h"
 #include "srsran/mac/mac_sdu_handler.h"
 #include "srsran/mac/mac_ue_control_information_handler.h"
+#include "srsran/ran/slot_point.h"
 #include "srsran/rlc/rlc_rx.h"
 #include "srsran/rlc/rlc_tx.h"
 #include <cstdint>
@@ -305,10 +306,10 @@ public:
 
   void disconnect() { connected = false; }
 
-  size_t on_new_tx_sdu(span<uint8_t> mac_sdu_buf, int first_pull) override
+  size_t on_new_tx_sdu(span<uint8_t> mac_sdu_buf, slot_point sl) override
   {
     srsran_assert(rlc_handler != nullptr, "MAC Rx SDU notifier is disconnected");
-    return SRSRAN_LIKELY(connected.load(std::memory_order_relaxed)) ? rlc_handler->pull_pdu(mac_sdu_buf,first_pull) : 0;
+    return SRSRAN_LIKELY(connected.load(std::memory_order_relaxed)) ? rlc_handler->pull_pdu(mac_sdu_buf, sl) : 0;
   }
 
   rlc_buffer_state on_buffer_state_update() override

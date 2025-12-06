@@ -23,6 +23,7 @@
 #pragma once
 
 #include "srsran/adt/byte_buffer.h"
+#include "srsran/ran/slot_point.h"
 #include "srsran/rlc/rlc_buffer_state.h"
 #include <optional>
 
@@ -172,7 +173,7 @@ public:
   /// \param rlc_pdu_buf TX buffer where to encode an RLC Tx PDU. The encoded PDU size cannot exceed the size of the
   /// buffer.
   /// \return Number of bytes taken by the written RLC PDU.
-  virtual size_t pull_pdu(span<uint8_t> rlc_pdu_buf, int first_pull) = 0;
+  virtual size_t pull_pdu(span<uint8_t> rlc_pdu_buf, slot_point sl) = 0;
 
   /// \brief Get the buffer status information
   /// This function provides the current buffer state of the RLC TX entity.

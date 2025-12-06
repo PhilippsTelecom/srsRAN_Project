@@ -52,7 +52,7 @@ public:
                               "Unable to allocate byte buffer");
   }
 
-  size_t on_new_tx_sdu(span<uint8_t> mac_sdu_buf, int first_pull) override
+  size_t on_new_tx_sdu(span<uint8_t> mac_sdu_buf, slot_point sl) override
   {
     // Return empty MAC SDU so that the MAC PDU is padded.
     return 0;

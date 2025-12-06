@@ -92,7 +92,8 @@ private:
   void assemble_dl_data_request(mac_dl_data_result&    mac_data,
                                 slot_point             sl_tx,
                                 du_cell_index_t        cell_index,
-                                const dl_sched_result& dl_res);
+                                const dl_sched_result& dl_res
+                              );
 
   /// Update DL buffer states of the allocated DL bearers.
   void update_logical_channel_dl_buffer_states(const dl_sched_result& dl_res);

@@ -24,6 +24,7 @@
 #include "rlc_um_pdu.h"
 #include "srsran/pdcp/pdcp_sn_util.h"
 #include "srsran/ran/pdsch/pdsch_constants.h"
+#include "srsran/ran/slot_point.h"
 
 using namespace srsran;
 
@@ -126,7 +127,7 @@ void rlc_tx_um_entity::discard_sdu(uint32_t pdcp_sn)
 }
 
 // TS 38.322 v16.2.0 Sec. 5.2.2.1
-size_t rlc_tx_um_entity::pull_pdu(span<uint8_t> mac_sdu_buf, int first_pull)
+size_t rlc_tx_um_entity::pull_pdu(span<uint8_t> mac_sdu_buf, slot_point sl)
 {
   uint32_t grant_len = mac_sdu_buf.size();
   logger.log_debug("MAC opportunity. grant_len={}", grant_len);

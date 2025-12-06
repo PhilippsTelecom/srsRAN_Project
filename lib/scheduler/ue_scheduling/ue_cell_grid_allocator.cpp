@@ -32,6 +32,7 @@
 #include "ue_pusch_alloc_param_candidate_searcher.h"
 
 #include "srsran/ran/du_types.h"
+#include "srsran/ran/slot_point.h"
 #include "srsran/ran/transform_precoding/transform_precoding_helpers.h"
 #include "srsran/scheduler/result/dci_info.h"
 #include "srsran/support/error_handling.h"
@@ -650,7 +651,7 @@ dl_alloc_result ue_cell_grid_allocator::allocate_dl_grant(du_cell_index_t       
     }
 
     mcs_tbs_info = compute_dl_mcs_tbs(*grant_params.pdsch_cfg, adjusted_mcs, crbs.length(), contains_dc);
-    // logger.error("amir for UE {} mcs: {} tbs: {}", fmt::underlying(u.ue_index), mcs_tbs_info->mcs, mcs_tbs_info->tbs);
+    // logger.error("amir for slot: {}, UE {} mcs: {} tbs: {}", pdsch_alloc.slot.to_uint(), fmt::underlying(u.ue_index), mcs_tbs_info->mcs, mcs_tbs_info->tbs);
 
     // If there is not MCS-TBS info, it means no MCS exists such that the effective code rate is <= 0.95.
     if (not mcs_tbs_info.has_value()) {

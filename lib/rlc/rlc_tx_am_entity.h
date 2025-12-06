@@ -29,19 +29,22 @@
 #include "rlc_sdu_queue_lockfree.h"
 #include "rlc_tx_entity.h"
 #include "srsran/ran/du_types.h"
+#include "srsran/ran/slot_point.h"
 #include "srsran/support/executors/task_executor.h"
 #include "srsran/support/sdu_window.h"
 #include "srsran/support/timers.h"
 #include "fmt/format.h"
-#include <mutex>
 
 #include <arpa/inet.h> // To print IP addresses: DEBUG
-#include <string> // For std::string
-#include <iostream> // To print some stuff: DEBUG
 #include <random> // Pour tirage aleatoire
-#define L4S_ENV_PATH "L4S" // To check if L4S mode
-#define MIN_DELAY_QUEUE 0.005 // 5 ms 
-#define MAX_DELAY_QUEUE 0.01 // 10 ms
+
+
+#define L4S_MODE "L4S_MODE"
+#define L4S_MARKING_MODE "L4S_MARKING_MODE"
+#define L4S_MIN_QUEUE_DELAY "L4S_MIN_QUEUE_DELAY"
+#define L4S_MAX_QUEUE_DELAY "L4S_MAX_QUEUE_DELAY"
+
+
 #define L4S_UPDATE_PERIO 0.005 // marking probability update
 #define L4S_ALPHA 0.8
 
@@ -89,10 +92,26 @@ struct rlc_tx_am_state {
 };
 
 
+
+enum L4SMode {
+  INACTIVE,
+  PERIODICAL,
+  WEIGHTED_AVERAGE,
+};
+
+enum L4SMarkingMode {
+  F1,
+  DU,
+};
+
 /// \brief Structure storing L4S-related variables
 struct l4s_utils {
-  /// \brief Boolean to check if L4S is activated  
-  int                                               l4s_mode; 
+  L4SMode l4s_mode = L4SMode::INACTIVE;
+  L4SMarkingMode markingMode = L4SMarkingMode::DU;
+
+  double min_queue_delay = 0.005; // 5 ms
+  double max_queue_delay = 0.010; // 10ms
+
 
   /// \brief Current Marking Probability 
   int marking_prob    = 0; 
@@ -107,10 +126,17 @@ struct l4s_utils {
 
   /// \brief Used to compute total number of bytes drained by MAC layer (another thread)
   std::atomic<size_t>                                grantedBytes;
+
+
+  // weighted marking variables
+  std::atomic<double> weighted_granted_bytes;
+  const double weighted_alpha = 0.6;
+  double p_marking = 0;
+
   
   // Constructor: initializes everything
   l4s_utils()
-    : l4s_mode(0),marking_prob(0),gen(rd()), dis(0,100), last_L4S_report(std::chrono::steady_clock::now()), grantedBytes(0) {}
+    : gen(rd()), dis(0,100), last_L4S_report(std::chrono::steady_clock::now()), grantedBytes(0), weighted_granted_bytes(0.0) {}
 };
 
 
@@ -181,6 +207,9 @@ private:
   
   // Holds all variables used to do L4S marking at the DU  
   l4s_utils l4s; 
+  slot_point last_slot;
+
+
   
 
 public:
@@ -218,7 +247,7 @@ public:
   void update_queue_length_metrics();
 
   // Interfaces for lower layers
-  size_t pull_pdu(span<uint8_t> rlc_pdu_buf, int first_pull) override;
+  size_t pull_pdu(span<uint8_t> rlc_pdu_buf, slot_point sl) override;
 
   rlc_buffer_state get_buffer_state() override;
 
@@ -405,14 +434,22 @@ private:
     }
   }
 
+  void read_env_vars();
+
   /// Re-computes the IP checksum
   void compute_checksum(uint8_t* data, uint8_t result[2]);
 
   // Marks a given packet (ECN-CE)
-  void mark_l4s_packet(rlc_sdu sdu, unsigned hdr_len);
+  void mark_l4s_packet(rlc_sdu &sdu);
 
   // Updates the marking probability when necessary
   void update_l4s_probability(double period); 
+
+  void check_marking(rlc_sdu &sdu);
+
+  void check_periodical_marking(rlc_sdu &sdu);
+
+  void check_weighted_average_marking(rlc_sdu &sdu);
 };
 
 } // namespace srsran
