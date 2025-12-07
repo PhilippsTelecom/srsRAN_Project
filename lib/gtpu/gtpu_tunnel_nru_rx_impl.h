@@ -25,6 +25,7 @@
 #include "gtpu_tunnel_base_rx.h"
 #include "srsran/gtpu/gtpu_config.h"
 #include "srsran/gtpu/gtpu_tunnel_nru_rx.h"
+#include "srsran/nru/nru_message.h"
 #include "srsran/nru/nru_packing.h"
 #include "srsran/support/srsran_assert.h"
 
@@ -55,22 +56,6 @@ protected:
     // gtpu_teid_t      teid                  = pdu.hdr.teid;
     bool             have_nr_ran_container = false;
     byte_buffer_view nr_ran_container;
-    for (auto ext_hdr : pdu.hdr.ext_list) {
-      switch (ext_hdr.extension_header_type) {
-        case gtpu_extension_header_type::nr_ran_container:
-          if (!have_nr_ran_container) {
-            have_nr_ran_container = true;
-            nr_ran_container      = ext_hdr.container;
-          } else {
-            logger.log_warning("Ignoring multiple NR RAN container. pdu_len={}", pdu_len);
-          }
-          break;
-        default:
-          logger.log_warning("Ignoring unexpected extension header at F1-U interface. type={} pdu_len={}",
-                             ext_hdr.extension_header_type,
-                             pdu_len);
-      }
-    }
 
     logger.log_debug(pdu.buf.begin(), pdu.buf.end(), "RX PDU. pdu_len={}", pdu_len);
 
@@ -80,10 +65,23 @@ protected:
         logger.log_warning("Dropping DL message without NRU DL user data. pdu_len={}", pdu_len);
         return;
       }
+      
+      // Browse DL Extensions
       nru_dl_user_data dud;
-      if (not packer.unpack(dud, nr_ran_container)) {
-        logger.log_warning("Dropping DL message. Cause: could not unpack NR RAN container. pdu_len={}", pdu_len);
-        return;
+      for (auto ext_hdr : pdu.hdr.ext_list) {
+        switch (ext_hdr.extension_header_type) {
+          case gtpu_extension_header_type::nr_ran_container:
+            nr_ran_container      = ext_hdr.container;
+            if (not packer.unpack(dud, nr_ran_container)) {
+              logger.log_warning("Dropping DL message. Cause: could not unpack NR RAN container. pdu_len={}", pdu_len);
+              return;
+            }
+            break;
+          default:
+            logger.log_warning("Ignoring unexpected extension header at F1-U interface. type={} pdu_len={}",
+                              ext_hdr.extension_header_type,
+                              pdu_len);
+        }
       }
       nru_dl_message dl_message = {};
       dl_message.t_pdu          = gtpu_extract_msg(std::move(pdu)); // header is invalidated after extraction;
@@ -99,17 +97,44 @@ protected:
     if (config.node == nru_node::cu_up) {
       nru_ul_message ul_message = {};
 
-      // Get DDDS, if exists.
-      std::optional<nru_dl_data_delivery_status> ddds_opt;
-      if (have_nr_ran_container) {
-        nru_dl_data_delivery_status ddds;
-        if (not packer.unpack(ddds, nr_ran_container)) {
-          logger.log_warning("Dropping UL message. Cause: could not unpack NR RAN container. pdu_len={}", pdu_len);
-          return;
+      logger.log_debug("We received UL message on the CU-UP");
+
+      // Browse DL Extensions: 3 FRAMES FORMAT FOR NRU 
+      // (DL_USER_DATA (TYPE 0) / DL_DATA_DELIVERY_STATUS (TYPE 1) / ASSISTANCE_INFORMATION_DATA (TYPE 2) )
+      std::optional<nru_dl_data_delivery_status> ddds_opt;    // PDU TYPE 1
+      std::optional<nru_assistance_information> ass_info_opt; // PDU TYPE 2
+      for (auto ext_hdr : pdu.hdr.ext_list) {
+        switch (ext_hdr.extension_header_type) {
+          case gtpu_extension_header_type::nr_ran_container: {// NR User Plane Protocol
+            // Try Unpacking DL Data Delivery Status
+            nru_dl_data_delivery_status ddds;
+            if(packer.unpack(ddds, ext_hdr.container)){
+              ddds_opt = ddds;
+              logger.log_info("We unpacked a Data Delivery Status");
+              continue;
+            }
+            // Try Unpacking Assistance Information
+            nru_assistance_information ass_info;
+            if(packer.unpack(ass_info,ext_hdr.container)){
+              ass_info_opt =  ass_info;
+              logger.log_info("We unpacked an Assistance Information");
+            }
+            // Could not Unpack Anything
+            else{
+              logger.log_warning("Dropping DL message. Cause: could not unpack NR RAN container. pdu_len={}", pdu_len);
+              return;
+            }
+            break;
+          }
+          default:
+            logger.log_warning("Ignoring unexpected extension header at F1-U interface. type={} pdu_len={}",
+                              ext_hdr.extension_header_type,
+                              pdu_len);
+            break;
         }
-        ddds_opt = ddds;
       }
       ul_message.data_delivery_status = ddds_opt;
+      ul_message.assistance_information = ass_info_opt;
 
       // Extract T-PDU
       expected<byte_buffer_chain> buf =
@@ -129,7 +154,8 @@ protected:
       } else {
         logger.log_info("RX DL data delivery status");
       }
-      lower_dn.on_new_sdu(std::move(ul_message));
+      logger.log_info("Before calling ON_NEW_SDU");
+      lower_dn.on_new_sdu(std::move(ul_message)); // THIS IS CALLED: OK
       return;
     }
 

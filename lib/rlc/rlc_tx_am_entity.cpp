@@ -33,7 +33,7 @@
 using namespace srsran;
 
 rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_id,
-                                   du_ue_index_t                        ue_index,
+                                   du_ue_index_t                        ue_index_,
                                    rb_id_t                              rb_id_,
                                    const rlc_tx_am_config&              config,
                                    rlc_tx_upper_layer_data_notifier&    upper_dn_,
@@ -45,7 +45,7 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
                                    task_executor&                       ue_executor_,
                                    timer_manager&                       timers) :
   rlc_tx_entity(gnb_du_id,
-                ue_index,
+                ue_index_,
                 rb_id_,
                 upper_dn_,
                 upper_cn_,
@@ -55,6 +55,7 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
                 pcell_executor_,
                 ue_executor_,
                 timers),
+  ue_index(ue_index_),
   cfg(config),
   sdu_queue(cfg.queue_size, cfg.queue_size_bytes, logger),
   retx_queue(window_size(to_number(cfg.sn_field_length))),
@@ -89,14 +90,24 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
                               [this](timer_id_t tid) { on_expired_poll_retransmit_timer(); });
   }
 
-  // Checks if L4S MODE or NOT
+  // Checks L4S MODE
   const char* l4s_activated = getenv(L4S_ENV_PATH);
-  if(l4s_activated != nullptr && *l4s_activated=='1'){
-    std::cout<<"[!] AM entity: L4S mode enabled (ENV L4S = 1) "<<std::endl;
-    l4s.l4s_mode = 1;
-  }else{
-     std::cout<<"[!] AM entity: L4S mode NOT enabled (NO ENV L4S or ENV L4S !=1)"<<std::endl;
-     l4s.l4s_mode = 0;
+  if(l4s_activated != nullptr){
+    int mode = atoi(l4s_activated);
+    switch (mode) {
+      case 1:
+        l4s.l4s_mode = 1;
+        std::cout<<"[!] AM entity: L4S Mode =1 (ECN-CE marking at CU through F1-U) "<<std::endl;
+        break;
+      case 2:
+        l4s.l4s_mode = 2;
+        std::cout<<"[!] AM entity: L4S Mode =2 (ECN-CE marking at DU)"<<std::endl;
+        break;
+      default:
+        l4s.l4s_mode = 0;
+        std::cout<<"[!] AM entity: L4S Mode =0 (DU does not compute any ECN-CE probability)"<<std::endl;
+        break;
+    }
   }
 	
 
@@ -177,8 +188,12 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
     // Updates the Marking Probability for upper layer (PDCP through F1 Interface)
     // Must be between 0 and 10,000 (cf TS 138.425 '5.5.3.62')
     // Max proba = 100 _ 100 * 100 = 10.000
-    uint16_t dl_cong_info = l4s.marking_prob * 100;
-    upper_dn.update_cong_info(dl_cong_info);
+    // Only done if L4S Mode is set to 1
+    if(l4s.l4s_mode == 1){
+      logger.log_debug("Sending L4S Probability for UE = {} ",static_cast<uint64_t>(ue_index));
+      uint16_t dl_cong_info = l4s.marking_prob * 100;
+      upper_dn.update_cong_info(dl_cong_info);
+    }
   }
 
 
@@ -213,10 +228,13 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
           update_l4s_probability(duration);
         }
         // CHECK IF HAS TO MARK PACKET
-        int random_number = l4s.dis(l4s.gen);
-        if ( random_number < l4s.marking_prob )
-        {
-          mark_l4s_packet(sdu,hdr_len);
+        // WE ONLY MARK PACKETS IF MODE 2
+        if (l4s.l4s_mode == 2){
+          int random_number = l4s.dis(l4s.gen);
+          if ( random_number < l4s.marking_prob )
+          {
+            mark_l4s_packet(sdu,hdr_len);
+          }
         }
       }
       free(tos);

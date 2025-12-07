@@ -116,7 +116,7 @@ void pdcp_entity_rx::handle_pdu(byte_buffer_chain buf)
   std::chrono::system_clock::time_point time_of_arrival = std::chrono::high_resolution_clock::now();
 
   // Log PDU
-  logger.log_debug(buf.begin(), buf.end(), "RX PDU. pdu_len={}", buf.length());
+  logger.log_debug(buf.begin(), buf.end(), "RX PDU at PDCP entity RX. pdu_len={}", buf.length());
   // Sanity check
   if (buf.empty()) {
     metrics.add_dropped_pdus(1);

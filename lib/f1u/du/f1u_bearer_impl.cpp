@@ -177,9 +177,9 @@ void f1u_bearer_impl::handle_delivery_retransmitted_notification(uint32_t highes
 bool f1u_bearer_impl::fill_congestion_information(nru_assistance_information& assistance)
 {
   uint16_t cur_cong_info = latest_congestion_information.load(std::memory_order_relaxed);
-  logger.log_debug("Adding congestion information for DRB {}", cur_cong_info);
   assistance.dl_cong_info = cur_cong_info;
   if (cur_cong_info != notif_latest_congestion_information) {
+    logger.log_debug("Adding congestion information for DRB {}", cur_cong_info);
     notif_latest_congestion_information = cur_cong_info;
     return true;
   }

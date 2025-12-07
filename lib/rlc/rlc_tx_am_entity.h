@@ -28,6 +28,7 @@
 #include "rlc_retx_queue.h"
 #include "rlc_sdu_queue_lockfree.h"
 #include "rlc_tx_entity.h"
+#include "srsran/ran/du_types.h"
 #include "srsran/support/executors/task_executor.h"
 #include "srsran/support/sdu_window.h"
 #include "srsran/support/timers.h"
@@ -116,6 +117,9 @@ struct l4s_utils {
 class rlc_tx_am_entity : public rlc_tx_entity, public rlc_tx_am_status_handler, public rlc_tx_am_status_notifier
 {
 private:
+  // Temporary
+  du_ue_index_t ue_index; 
+  
   // Config storage
   const rlc_tx_am_config cfg;
 

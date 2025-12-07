@@ -349,6 +349,8 @@ bool gtpu_write_ext_header(bit_encoder&                 encoder,
   // TODO check valid write extension types
 
   uint8_t payload = 1 + ext.container.length() + 1;
+  // NOTA: 14 = 6 + 6 + 2
+  // MAYBE NOT JUST ONE EXTENSION
   srsran_assert(payload % 4 == 0, "Invalid GTP-U extension size. payload={}", payload);
 
   uint8_t length  = payload / 4;

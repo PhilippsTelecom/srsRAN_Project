@@ -442,4 +442,75 @@ bool nru_packing::pack(byte_buffer& out_buf, const nru_dl_data_delivery_status& 
   return true;
 };
 
+bool nru_packing::unpack(nru_assistance_information& assistance_information, byte_buffer_view container) const{
+
+  if (container.empty()) {
+    logger.error("Failed to unpack DL Assistance Information: pdu_len=0");
+    return false;
+  }
+
+  if ((container.length() + 2) % 4 != 0) {
+    logger.error("Failed to unpack DL Assistance Information: pdu_len={} != n*4-2", container.length());
+    return false;
+  }
+
+  bit_decoder decoder{container};
+
+  // PDU Type
+  uint8_t pdu_type = {};
+  VERIFY_READ(decoder.unpack(pdu_type, 4));
+  if (uint_to_nru_pdu_type(pdu_type) != nru_pdu_type::assistance_information) {
+    logger.error("Failed to unpack DL Assistance Information: Invalid pdu_type={}", uint_to_nru_pdu_type(pdu_type));
+    return false;
+  }
+
+  // DL Congestion Information
+  bool congestion_info = {};
+  VERIFY_READ(decoder.unpack(congestion_info, 1));
+
+  // Spare (v15.2.0)
+  uint8_t spare = {};
+  VERIFY_READ(decoder.unpack(spare, 3));
+  if (spare != 0) {
+    logger.error("Failed to unpack DL data delivery status: Spare bits set in second octet. value={:#x}", spare);
+    return false;
+  }
+
+  if(congestion_info){
+    uint16_t dl_cong_info = {};
+    VERIFY_READ(decoder.unpack(dl_cong_info, 16));
+    assistance_information.dl_cong_info = dl_cong_info;
+  }
+
+  return true; 
+}
+
+bool nru_packing::pack(byte_buffer& out_buf, const nru_assistance_information& assistance_information) const{
+
+  size_t      start_len = out_buf.length();
+  bit_encoder encoder{out_buf};
+
+  // HANDLE HEADER //
+  // PDU Type
+  VERIFY_WRITE(encoder.pack(nru_pdu_type_to_uint(nru_pdu_type::assistance_information), 4));
+  logger.debug("Encoded NRU Assistance Information _ pdu_type={}", uint_to_nru_pdu_type(nru_pdu_type_to_uint(nru_pdu_type::assistance_information)));
+  // DL Congestion Information
+  VERIFY_WRITE(encoder.pack(assistance_information.dl_cong_info.has_value(), 1));
+  // Spare to get only 1 byte
+  VERIFY_WRITE(encoder.pack(0, 3));
+
+  // HANDLE PAYLOAD //
+  // DL Congestion Information
+  if (assistance_information.dl_cong_info.has_value()) {
+    VERIFY_WRITE(encoder.pack(assistance_information.dl_cong_info.value(), 16));
+  }
+
+  // Add padding such that length is (n*4-2) octets, where n is a positive integer.
+  while (((out_buf.length() - start_len) + 2) % 4) {
+    VERIFY_WRITE(out_buf.append(0x0));
+  }
+
+  return true;
+}
+
 } // namespace srsran

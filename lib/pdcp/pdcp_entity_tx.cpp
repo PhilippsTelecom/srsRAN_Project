@@ -831,6 +831,13 @@ if (cfg.discard_timer.has_value()) {
    // For now those retransmitted PDUs will be cleaned when handling delivery notification for following originals.
    logger.log_debug("Ignored handling PDU delivery retransmitted notification for notif_sn={}", notif_sn);
  }
+
+ void pdcp_entity_tx::handle_congestion_information(uint16_t cong_info)
+ {
+  int marking_proba = (int) cong_info / 10000; // Cf TS 38.425, Section 5.5.3.62: DL Congestion Information / 2 bytes, Max Value = 10,000.
+  std::cout<<"Updating the congestion information = "<<marking_proba<<std::endl;
+  modify_marking_probability(marking_proba);
+ }
  
  void pdcp_entity_tx::handle_desired_buffer_size_notification(uint32_t desired_bs)
  {

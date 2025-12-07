@@ -147,6 +147,7 @@ public:
 
   void on_new_pdu(nru_ul_message msg) override
   {
+    logger.log_debug("Inside f1u split gateway du bearer; got new PDU");
     if (tunnel == nullptr) {
       logger.log_debug("DL GTPU tunnel not connected. Discarding SDU.");
       return;

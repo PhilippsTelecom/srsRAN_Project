@@ -89,7 +89,7 @@ private:
   unique_timer ul_notif_timer;
 
   /// Holds the most recent information of the congestion (or ECN-CE)
-  std::atomic<uint16_t> latest_congestion_information;
+  std::atomic<uint16_t> latest_congestion_information{unset_proba};
   /// Holds the most recent information of the available space in the RLC SDU queue
   std::atomic<uint32_t> desired_buffer_size_for_data_radio_bearer;
   /// Holds the most recent highest transmitted PDCP SN that is frequently updated by lower layers (i.e. by RLC AM/UM)

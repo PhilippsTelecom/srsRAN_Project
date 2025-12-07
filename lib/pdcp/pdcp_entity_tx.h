@@ -109,6 +109,7 @@
    void handle_retransmit_notification(uint32_t notif_sn) override;
    void handle_delivery_retransmitted_notification(uint32_t notif_sn) override;
    void handle_desired_buffer_size_notification(uint32_t desired_bs) override;
+   void handle_congestion_information(uint16_t cong_info) override;
  
    /// \brief Evaluates a PDCP status report
    ///

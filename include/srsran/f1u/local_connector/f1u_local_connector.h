@@ -32,6 +32,8 @@
 #include <mutex>
 #include <unordered_map>
 
+#include <iostream>
+
 namespace srsran {
 
 /// \brief Object used to represent a bearer at the CU F1-U gateway
@@ -161,6 +163,8 @@ public:
 
   void on_new_pdu(nru_ul_message msg) override
   {
+    std::cout<<"F1U Gateway @DU: Received NRU_UL"<<std::endl;
+    logger.log_info("F1U DU Bearer received PDU");
     std::unique_lock<std::mutex> lock(notifier_mutex);
     if (notifier == nullptr) {
       logger.log_info("Cannot handle NR-U UL message. CU-UP bearer does not exist.");

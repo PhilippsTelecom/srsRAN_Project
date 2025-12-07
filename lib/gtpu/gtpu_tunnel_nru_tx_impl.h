@@ -91,6 +91,7 @@ public:
 
   void handle_sdu(nru_ul_message ul_message) final
   {
+    logger.log_debug("Handling SDU in gtpu_tunnel_nru_tx_impl.");
     gtpu_header hdr         = {};
     hdr.flags.version       = GTPU_FLAGS_VERSION_V1;
     hdr.flags.protocol_type = GTPU_FLAGS_GTP_PROTOCOL;
@@ -100,25 +101,50 @@ public:
     hdr.teid                = cfg.peer_teid;
     hdr.next_ext_hdr_type   = gtpu_extension_header_type::no_more_extension_headers;
 
-    byte_buffer ext_buf;
-    if (ul_message.data_delivery_status.has_value()) {
-      logger.log_debug("Adding data_delivery_status to PDU. teid={}", hdr.teid);
+    
+    // Assistance Information is an extension Header (PDU TYPE 2)
+    byte_buffer ext_buf_assitance;
+    if (ul_message.assistance_information.has_value()) {
+      logger.log_debug("Adding Assistance Information to PDU. teid={}", hdr.teid);
       hdr.next_ext_hdr_type = gtpu_extension_header_type::nr_ran_container;
 
-      if (!packer.pack(ext_buf, ul_message.data_delivery_status.value())) {
+      if (!packer.pack(ext_buf_assitance, ul_message.assistance_information.value())) {
         logger.log_error("Dropped SDU, error writing NR RAN container to GTP-U extension header. teid={} ext_len={}",
                          hdr.teid,
-                         ext_buf.length());
+                         ext_buf_assitance.length());
+        return;
+      }
+      logger.log_debug("We could pack the Assistance Information");
+
+      gtpu_extension_header ext;
+      ext.extension_header_type = gtpu_extension_header_type::nr_ran_container; // 8 bits 
+      ext.container             = ext_buf_assitance;
+      logger.log_debug("Length of Assistance Information = {}",ext_buf_assitance.length()); // 6
+      hdr.ext_list.push_back(ext); // 
+    }
+
+    // Data Delivery Status (PDU Type 1)
+    byte_buffer ext_buf_data_delivery;
+    if (ul_message.data_delivery_status.has_value()) {
+      logger.log_debug("Adding data_delivery_status to PDU. teid={}", hdr.teid);
+      hdr.next_ext_hdr_type = gtpu_extension_header_type::nr_ran_container; // 8 bits 
+
+      if (!packer.pack(ext_buf_data_delivery, ul_message.data_delivery_status.value())) {
+        logger.log_error("Dropped SDU, error writing NR RAN container to GTP-U extension header. teid={} ext_len={}",
+                         hdr.teid,
+                         ext_buf_data_delivery.length());
         return;
       }
 
       gtpu_extension_header ext;
       ext.extension_header_type = gtpu_extension_header_type::nr_ran_container;
-      ext.container             = ext_buf;
+      ext.container             = ext_buf_data_delivery;
 
+      logger.log_debug("Length of Data Delivery Status = {}",ext_buf_data_delivery.length());
       hdr.ext_list.push_back(ext);
     }
 
+    // Downlink User Data (PDU Type 0)
     byte_buffer buf;
     if (ul_message.t_pdu.has_value()) {
       expected<byte_buffer> exp_buf = ul_message.t_pdu.value().deep_copy();
@@ -128,7 +154,7 @@ public:
       }
       buf = std::move(exp_buf.value());
     }
-    bool write_ok = gtpu_write_header(buf, hdr, logger);
+    bool write_ok = gtpu_write_header(buf, hdr, logger); // SHOULD BE OK
 
     if (!write_ok) {
       logger.log_error("Dropped SDU, error writing GTP-U header. teid={}", hdr.teid);

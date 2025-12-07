@@ -66,6 +66,9 @@ public:
   bool unpack(nru_dl_data_delivery_status& dl_data_delivery_status, byte_buffer_view container) const;
   bool pack(byte_buffer& out_buf, const nru_dl_data_delivery_status& dl_data_delivery_status) const;
 
+  bool unpack(nru_assistance_information& assistance_information, byte_buffer_view container) const;
+  bool pack(byte_buffer& out_buf, const nru_assistance_information& assistance_information) const; // USED
+
 private:
   srslog::basic_logger& logger;
 };

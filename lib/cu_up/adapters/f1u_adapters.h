@@ -78,7 +78,8 @@ public:
   }
 
   void on_congestion_information(uint16_t cong_info) override{
-    pdcp_tx_handler->null;
+    srslog::fetch_basic_logger("F1-U").warning("Handling Congestion Information"); // RECEIVED BY CU
+    pdcp_tx_handler->handle_congestion_information(cong_info);
   }
 
 private:
@@ -97,6 +98,7 @@ public:
 
   void on_new_pdu(nru_ul_message msg) override
   {
+    srslog::fetch_basic_logger("F1-U").warning("F1U Gateway at CU: received Data"); // RECEIVED BY CU 
     srsran_assert(f1u_handler != nullptr, "GTP-U handler must not be nullptr");
     f1u_handler->handle_pdu(std::move(msg));
   }
