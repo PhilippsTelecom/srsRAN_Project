@@ -240,7 +240,6 @@ bool nru_packing::unpack(nru_dl_data_delivery_status& dl_data_delivery_status, b
   uint8_t pdu_type = {};
   VERIFY_READ(decoder.unpack(pdu_type, 4));
   if (uint_to_nru_pdu_type(pdu_type) != nru_pdu_type::dl_data_delivery_status) {
-    logger.error("Failed to unpack DL data delivery status: Invalid pdu_type={}", uint_to_nru_pdu_type(pdu_type));
     return false;
   }
 
@@ -460,7 +459,6 @@ bool nru_packing::unpack(nru_assistance_information& assistance_information, byt
   uint8_t pdu_type = {};
   VERIFY_READ(decoder.unpack(pdu_type, 4));
   if (uint_to_nru_pdu_type(pdu_type) != nru_pdu_type::assistance_information) {
-    logger.error("Failed to unpack DL Assistance Information: Invalid pdu_type={}", uint_to_nru_pdu_type(pdu_type));
     return false;
   }
 
@@ -472,7 +470,7 @@ bool nru_packing::unpack(nru_assistance_information& assistance_information, byt
   uint8_t spare = {};
   VERIFY_READ(decoder.unpack(spare, 3));
   if (spare != 0) {
-    logger.error("Failed to unpack DL data delivery status: Spare bits set in second octet. value={:#x}", spare);
+    logger.error("Failed to unpack DL Assistance Information: Spare bits set in second octet. value={:#x}", spare);
     return false;
   }
 

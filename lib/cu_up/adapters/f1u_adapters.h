@@ -78,7 +78,6 @@ public:
   }
 
   void on_congestion_information(uint16_t cong_info) override{
-    srslog::fetch_basic_logger("F1-U").warning("Handling Congestion Information"); // RECEIVED BY CU
     pdcp_tx_handler->handle_congestion_information(cong_info);
   }
 

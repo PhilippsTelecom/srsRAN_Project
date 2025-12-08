@@ -34,7 +34,7 @@ class f1u_tx_delivery_handler
 public:
   virtual ~f1u_tx_delivery_handler() = default;
 
-  /// \brief Handles an update of the ECN-CE MArking Probability from lower layers (i.e. from RLC UM/AM).
+  /// \brief Handles an update of the ECN-CE Marking Probability from lower layers (i.e. from RLC UM/AM).
   /// TS 138.435 Section 5.5.3.62 'DL Congestion Information'
   ///
   /// This function is quick and shall be called directly from pcell_executor to avoid excessive transitions across

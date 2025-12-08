@@ -141,7 +141,6 @@ void f1u_bearer_impl::handle_pdu_impl(nru_ul_message msg)
     // Read Congestion Information
     if (status.dl_cong_info.has_value()) {
       uint16_t dl_cong_info = status.dl_cong_info.value();
-      logger.log_debug("Notifying about congestion Information={}", dl_cong_info);
       if (not dl_exec.defer(
               [this, dl_cong_info]() { rx_delivery_notifier.on_congestion_information(dl_cong_info); })) {
         logger.log_warning("Could not update the congestion information");

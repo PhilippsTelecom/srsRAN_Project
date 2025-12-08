@@ -834,7 +834,10 @@ if (cfg.discard_timer.has_value()) {
 
  void pdcp_entity_tx::handle_congestion_information(uint16_t cong_info)
  {
-  int marking_proba = (int) cong_info / 10000; // Cf TS 38.425, Section 5.5.3.62: DL Congestion Information / 2 bytes, Max Value = 10,000.
+  logger.log_debug("At PDCP updates congestion ={}", cong_info);
+  // Cf TS 38.425, Section 5.5.3.62: DL Congestion Information / 2 bytes, Max Value = 10,000.
+  // Converts cong_info (0-10.000 to percentage 0-100)
+  int marking_proba = static_cast<int>(static_cast<double>(cong_info) / 100.0); 
   std::cout<<"Updating the congestion information = "<<marking_proba<<std::endl;
   modify_marking_probability(marking_proba);
  }

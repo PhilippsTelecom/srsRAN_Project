@@ -61,16 +61,12 @@ protected:
 
     // DL message
     if (config.node == nru_node::du) {
-      if (not have_nr_ran_container) {
-        logger.log_warning("Dropping DL message without NRU DL user data. pdu_len={}", pdu_len);
-        return;
-      }
-      
       // Browse DL Extensions
       nru_dl_user_data dud;
       for (auto ext_hdr : pdu.hdr.ext_list) {
         switch (ext_hdr.extension_header_type) {
           case gtpu_extension_header_type::nr_ran_container:
+            have_nr_ran_container = true;
             nr_ran_container      = ext_hdr.container;
             if (not packer.unpack(dud, nr_ran_container)) {
               logger.log_warning("Dropping DL message. Cause: could not unpack NR RAN container. pdu_len={}", pdu_len);
@@ -83,6 +79,11 @@ protected:
                               pdu_len);
         }
       }
+      if (not have_nr_ran_container) {
+        logger.log_warning("Dropping DL message without NRU DL user data. pdu_len={}", pdu_len);
+        return;
+      }
+      
       nru_dl_message dl_message = {};
       dl_message.t_pdu          = gtpu_extract_msg(std::move(pdu)); // header is invalidated after extraction;
       dl_message.dl_user_data   = std::move(dud);
@@ -97,8 +98,6 @@ protected:
     if (config.node == nru_node::cu_up) {
       nru_ul_message ul_message = {};
 
-      logger.log_debug("We received UL message on the CU-UP");
-
       // Browse DL Extensions: 3 FRAMES FORMAT FOR NRU 
       // (DL_USER_DATA (TYPE 0) / DL_DATA_DELIVERY_STATUS (TYPE 1) / ASSISTANCE_INFORMATION_DATA (TYPE 2) )
       std::optional<nru_dl_data_delivery_status> ddds_opt;    // PDU TYPE 1
@@ -110,14 +109,12 @@ protected:
             nru_dl_data_delivery_status ddds;
             if(packer.unpack(ddds, ext_hdr.container)){
               ddds_opt = ddds;
-              logger.log_info("We unpacked a Data Delivery Status");
               continue;
             }
             // Try Unpacking Assistance Information
             nru_assistance_information ass_info;
             if(packer.unpack(ass_info,ext_hdr.container)){
               ass_info_opt =  ass_info;
-              logger.log_info("We unpacked an Assistance Information");
             }
             // Could not Unpack Anything
             else{
@@ -154,8 +151,7 @@ protected:
       } else {
         logger.log_info("RX DL data delivery status");
       }
-      logger.log_info("Before calling ON_NEW_SDU");
-      lower_dn.on_new_sdu(std::move(ul_message)); // THIS IS CALLED: OK
+      lower_dn.on_new_sdu(std::move(ul_message));
       return;
     }
 
