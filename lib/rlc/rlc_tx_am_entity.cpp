@@ -95,6 +95,34 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
   logger.log_info("RLC AM configured. {}", cfg);
 }
 
+
+
+std::string mode_to_str(L4SMode mode) {
+  switch (mode) {
+    case L4SMode::PERIODICAL:
+      return "PERIODICAL";
+      break;
+    case L4SMode::WEIGHTED_AVERAGE:
+      return "WEIGHTED_AVERAGE";
+    default:
+      return "INACTIVE";
+  }
+}
+
+
+std::string marking_mode_to_str(L4SMarkingMode mm) {
+  switch (mm) {
+    case srsran::L4SMarkingMode::DU:
+      return "DU";
+      break;
+      
+    case srsran::L4SMarkingMode::F1:
+      return "F1";
+      break;
+  }
+  return "BAD MARKING MODE";
+}
+
 void rlc_tx_am_entity::read_env_vars() {
   const char *c = getenv(L4S_MODE);
   std::string l4s_mode = c == nullptr ? "" : c;
@@ -109,9 +137,9 @@ void rlc_tx_am_entity::read_env_vars() {
 
   c = getenv(L4S_MARKING_MODE);
   std::string markingMode = c == nullptr ? "" : c;
-  if (l4s_mode == "DU") {
+  if (markingMode == "DU") {
     l4s.markingMode = L4SMarkingMode::DU;
-  } else if (l4s_mode == "F1") {
+  } else if (markingMode == "F1") {
     l4s.markingMode = L4SMarkingMode::F1;
   } else {
     l4s.l4s_mode = L4SMode::INACTIVE;
@@ -159,14 +187,15 @@ void rlc_tx_am_entity::read_env_vars() {
   // Sanity: ensure min <= max
   if (l4s.min_queue_delay > l4s.max_queue_delay) {
     printf(
-        "L4S min_queue_delay (%.6fs) > max_queue_delay (%.6fs). Swapping values to make min <= max.\n",
+        "L4S min_queue_delay (%.6fs) > max_quseue_delay (%.6fs). Swapping values to make min <= max.\n",
         l4s.min_queue_delay,
         l4s.max_queue_delay);
     std::swap(l4s.min_queue_delay, l4s.max_queue_delay);
   }
 
-  printf("AM entity: L4S mode: (ENV L4S = %s) min_delay=%.6fs max_delay=%.6fs\n",
-         l4s_mode.c_str(),
+  printf("AM entity: L4S mode: (ENV L4S = %s) marking_mode=%s  min_delay=%.6fs max_delay=%.6fs\n",
+         mode_to_str(l4s.l4s_mode).c_str(),
+         marking_mode_to_str(l4s.markingMode).c_str(),
          l4s.min_queue_delay,
          l4s.max_queue_delay);
 }
@@ -248,7 +277,7 @@ void rlc_tx_am_entity::read_env_vars() {
     // Must be between 0 and 10,000 (cf TS 138.425 '5.5.3.62')
     // Max proba = 100 _ 100 * 100 = 10.000
     // Only done if L4S Mode is set to 1
-    if(l4s.l4s_mode == 1){
+    if(l4s.markingMode == L4SMarkingMode::F1){
       logger.log_debug("Sending L4S Probability for UE = {} ",static_cast<uint64_t>(ue_index));
       uint16_t dl_cong_info = l4s.marking_prob * 100;
       upper_dn.update_cong_info(dl_cong_info);
@@ -267,43 +296,8 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
   sdu.pdcp_sn = get_pdcp_sn(sdu.buf, cfg.pdcp_sn_len, rb_id.is_srb(), logger.get_basic_logger());
 
   // IF DU_MARKING AND IS_DRB
-<<<<<<< HEAD
-  if (l4s.l4s_mode and !rb_id.is_srb()){  
-    unsigned hdr_len  = cfg.pdcp_sn_len == pdcp_sn_size::size12bits ? 2 : 3;
-    uint8_t* version = sdu.buf.get_payload_( hdr_len + 4*0 , 1);
-    
-    // WE LIMIT OURSELVES TO IPV4 PACKETS (Version 4)
-    if (version != nullptr and *(version)>>4 == 4){
-      uint8_t* tos = sdu.buf.get_payload_( hdr_len + 4*0 + 1 , 1);
-      *tos = (*tos & 0x3); // last 2 bits
-
-      // WE LIMIT OURSELVES TO L4S PACKETS (ECT(1))
-      if(*tos == 1){ 
-        // UPDATES MARKING PROB IF DURATION REACHED PERIOD
-        auto now                            = std::chrono::steady_clock::now();
-        std::chrono::duration<double> diff  = now - l4s.last_L4S_report;
-        double duration                     = std::chrono::duration<double>(diff).count();
-        if (duration > L4S_UPDATE_PERIO){
-          l4s.last_L4S_report   = now;
-          update_l4s_probability(duration);
-        }
-        // CHECK IF HAS TO MARK PACKET
-        // WE ONLY MARK PACKETS IF MODE 2
-        if (l4s.l4s_mode == 2){
-          int random_number = l4s.dis(l4s.gen);
-          if ( random_number < l4s.marking_prob )
-          {
-            mark_l4s_packet(sdu,hdr_len);
-          }
-        }
-      }
-      free(tos);
-    }
-    free(version);
-=======
   if (l4s.l4s_mode != L4SMode::INACTIVE and !rb_id.is_srb()){  
     check_marking(sdu);
->>>>>>> cee34dcc9 (Run L4S in two modes with values configurable from ENV)
   }
 
 
@@ -367,10 +361,11 @@ void rlc_tx_am_entity::check_periodical_marking(rlc_sdu &sdu) {
     // UPDATES MARKING PROB IF DURATION REACHED PERIOD
     update_l4s_probability(duration);
   }
-  // CHECK IF HAS TO MARK PACKET
-  int random_number = l4s.dis(l4s.gen);
-  if (random_number < l4s.marking_prob) {
-    mark_l4s_packet(sdu);
+  if (l4s.markingMode == L4SMarkingMode::DU) {
+    // CHECK IF HAS TO MARK PACKET
+    int random_number = l4s.dis(l4s.gen);
+    if (random_number < l4s.marking_prob)
+      mark_l4s_packet(sdu);
   }
 }
 
@@ -379,7 +374,6 @@ void rlc_tx_am_entity::check_weighted_average_marking(rlc_sdu &sdu) {
   n_bytes += sdu.buf.length();
   auto slot_grants = l4s.weighted_granted_bytes.load(std::memory_order_relaxed);
   auto rate = slot_grants * 1000.0; // 1000 timeslots per second
-  logger.log_error("the estimated rate is {} and n_bytes is: {} ", rate, n_bytes);
   if (rate > 0) {
     double p = 0; 
     auto delay_est= n_bytes / rate;
@@ -391,14 +385,17 @@ void rlc_tx_am_entity::check_weighted_average_marking(rlc_sdu &sdu) {
       p = 100.0 * (delay_est - l4s.min_queue_delay) / (l4s.max_queue_delay - l4s.min_queue_delay);
     }
     l4s.p_marking = p;
-
-    logger.log_error("and estimated delay is: {} and p is: {} ", delay_est, p);
+    if (l4s.markingMode == L4SMarkingMode::F1) {
+      uint16_t dl_cong_info = l4s.p_marking * 100;
+      upper_dn.update_cong_info(dl_cong_info);
+    }
   }
 
-  double random_number = l4s.dis(l4s.gen);
-  // logger.log_error("got random number {} ", random_number, " and marking")
-  if (random_number < l4s.p_marking) {
-    mark_l4s_packet(sdu);
+  if (l4s.markingMode == L4SMarkingMode::DU) {
+    double random_number = l4s.dis(l4s.gen);
+    if (random_number < l4s.p_marking) {
+      mark_l4s_packet(sdu);
+    }
   }
 }
 
