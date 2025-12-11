@@ -142,7 +142,7 @@ void rlc_tx_am_entity::read_env_vars() {
   } else if (markingMode == "F1") {
     l4s.markingMode = L4SMarkingMode::F1;
   } else {
-    l4s.l4s_mode = L4SMode::INACTIVE;
+    l4s.markingMode = L4SMarkingMode::DU;
   }
 
 
