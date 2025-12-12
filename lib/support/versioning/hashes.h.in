@@ -39,7 +39,7 @@ static const char build_mode[] = "unknown";
 #endif
 
 static const char build_hash[] = "@GIT_COMMIT_HASH@";
-
+static const char branch_name[] = "@GIT_BRANCH@";
 static const char build_info[] = "commit @GIT_COMMIT_HASH@ on branch @GIT_BRANCH@";
 
 } // namespace srsran
