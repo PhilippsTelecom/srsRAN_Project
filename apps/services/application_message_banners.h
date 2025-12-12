@@ -47,7 +47,7 @@ public:
   /// Announces the application name and version using its build hash.
   static void announce_app_and_version(std::string_view app_name)
   {
-    fmt::print("\n--== srsRAN {} (commit {}) ==--\n\n", app_name, get_build_hash());
+    fmt::print("\n--== srsRAN {} (commit {} / branch {}) ==--\n\n", app_name, get_build_hash(),get_branch_name());
   }
 
   /// Logs in the given logger application build parameters.

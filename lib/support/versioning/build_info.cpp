@@ -30,6 +30,11 @@ const char* srsran::get_build_hash()
   return build_hash;
 }
 
+const char* srsran::get_branch_name()
+{
+  return branch_name;
+}
+
 const char* srsran::get_build_info()
 {
   return build_info;
