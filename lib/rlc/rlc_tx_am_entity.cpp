@@ -29,6 +29,7 @@
 #include "srsran/support/rtsan.h"
 #include "srsran/support/srsran_assert.h"
 #include "srsran/support/tracing/event_tracing.h"
+#include <cstdint>
 
 using namespace srsran;
 
@@ -104,6 +105,10 @@ std::string mode_to_str(L4SMode mode) {
       break;
     case L4SMode::WEIGHTED_AVERAGE:
       return "WEIGHTED_AVERAGE";
+      break;
+    case L4SMode::LAST_DELAY:
+      return "LAST_DELAY";
+      break;
     default:
       return "INACTIVE";
   }
@@ -119,6 +124,10 @@ std::string marking_mode_to_str(L4SMarkingMode mm) {
     case srsran::L4SMarkingMode::F1:
       return "F1";
       break;
+
+    case srsran::L4SMarkingMode::NONE:
+      return "NONE";
+      break;
   }
   return "BAD MARKING MODE";
 }
@@ -130,7 +139,9 @@ void rlc_tx_am_entity::read_env_vars() {
     l4s.l4s_mode = L4SMode::PERIODICAL;
   } else if (l4s_mode == "WEIGHTED_AVERAGE") {
     l4s.l4s_mode = L4SMode::WEIGHTED_AVERAGE;
-  } else {
+  } else if (l4s_mode == "LAST_DELAY") {
+    l4s.l4s_mode = L4SMode::LAST_DELAY;
+  }else {
     l4s.l4s_mode = L4SMode::INACTIVE;
   }
 
@@ -138,11 +149,11 @@ void rlc_tx_am_entity::read_env_vars() {
   c = getenv(L4S_MARKING_MODE);
   std::string markingMode = c == nullptr ? "" : c;
   if (markingMode == "DU") {
-    l4s.markingMode = L4SMarkingMode::DU;
+    l4s.marking_mode = L4SMarkingMode::DU;
   } else if (markingMode == "F1") {
-    l4s.markingMode = L4SMarkingMode::F1;
+    l4s.marking_mode = L4SMarkingMode::F1;
   } else {
-    l4s.markingMode = L4SMarkingMode::DU;
+    l4s.marking_mode = L4SMarkingMode::NONE;
   }
 
 
@@ -195,7 +206,7 @@ void rlc_tx_am_entity::read_env_vars() {
 
   printf("AM entity: L4S mode: (ENV L4S = %s) marking_mode=%s  min_delay=%.6fs max_delay=%.6fs\n",
          mode_to_str(l4s.l4s_mode).c_str(),
-         marking_mode_to_str(l4s.markingMode).c_str(),
+         marking_mode_to_str(l4s.marking_mode).c_str(),
          l4s.min_queue_delay,
          l4s.max_queue_delay);
 }
@@ -258,32 +269,55 @@ void rlc_tx_am_entity::read_env_vars() {
  
 
   /// @brief Updates the ECN-CE marking probability
+  /// \param delay represents the sojourn time
+  /// Applies the L4S Formula to update the probability
+  int rlc_tx_am_entity::update_l4s_probability(double delay){
+    float tmp_mark_prob = 0; 
+    if(delay > l4s.max_queue_delay) tmp_mark_prob = 100; 
+    else tmp_mark_prob = delay < l4s.min_queue_delay ? 0 : float(delay - l4s.min_queue_delay) / (l4s.max_queue_delay - l4s.min_queue_delay) * 100;
+    return int(L4S_ALPHA * tmp_mark_prob + (1-L4S_ALPHA) * l4s.marking_prob);
+  }
+
+  /// @brief Updates the ECN-CE marking probability
   /// \param time duration since last update
   /// Updates the ECN-CE marking probability based on the estimation of the queueing time 
-  /// Re-initializes the counter 'grantedBytes'
-  void rlc_tx_am_entity::update_l4s_probability(double period){
+  /// Re-initializes the counter 'granted_bytes'
+  void rlc_tx_am_entity::update_l4s_probability_est_delay(double period){
     uint32_t nbBytes  = sdu_queue.get_state().n_bytes;
-    size_t  gBytes    = l4s.grantedBytes.exchange(0);
+    size_t  gBytes    = l4s.granted_bytes.exchange(0);
     double rate       = static_cast<double> (gBytes) / period;
     // COMPUTES DELAYS AND MARKING PROBABILITY
     if(rate > 0){
-      float tmp_mark_prob = 0; 
-      double est_delay= static_cast<double>(static_cast<double>(nbBytes)/rate);
-      if(est_delay > l4s.max_queue_delay) tmp_mark_prob = 100; 
-      else tmp_mark_prob = est_delay < l4s.min_queue_delay ? 0 : float(est_delay - l4s.min_queue_delay) / (l4s.max_queue_delay - l4s.min_queue_delay) * 100;
-      l4s.marking_prob = int(L4S_ALPHA * tmp_mark_prob + (1-L4S_ALPHA) * l4s.marking_prob);
+      double est_delay = static_cast<double>(static_cast<double>(nbBytes)/rate);
+      l4s.marking_prob = update_l4s_probability(est_delay);
     }
     // Updates the Marking Probability for upper layer (PDCP through F1 Interface)
     // Must be between 0 and 10,000 (cf TS 138.425 '5.5.3.62')
     // Max proba = 100 _ 100 * 100 = 10.000
     // Only done if L4S Mode is set to 1
-    if(l4s.markingMode == L4SMarkingMode::F1){
+    if(l4s.marking_mode == L4SMarkingMode::F1){
       logger.log_debug("Sending L4S Probability for UE = {} ",static_cast<uint64_t>(ue_index));
       uint16_t dl_cong_info = l4s.marking_prob * 100;
       upper_dn.update_cong_info(dl_cong_info);
     }
   }
 
+  /// @brief Updates the ECN-CE marking probability
+  /// Updates the ECN-CE marking probability based on last sojourn time
+  void rlc_tx_am_entity::update_l4s_probability_last_delay(){
+    uint32_t last_queue_delay = l4s.last_sdu_delay.load(std::memory_order_relaxed);
+    l4s.marking_prob = update_l4s_probability(last_queue_delay);
+
+    // Updates the Marking Probability for upper layer (PDCP through F1 Interface)
+    // Must be between 0 and 10,000 (cf TS 138.425 '5.5.3.62')
+    // Max proba = 100 _ 100 * 100 = 10.000
+    // Only done if L4S Mode is set to 1
+    if(l4s.marking_mode == L4SMarkingMode::F1){
+      logger.log_debug("Sending L4S Probability for UE = {} ",static_cast<uint64_t>(ue_index));
+      uint16_t dl_cong_info = l4s.marking_prob * 100;
+      upper_dn.update_cong_info(dl_cong_info);
+    }
+  }
 
 // TS 38.322 v16.2.0 Sec. 5.2.3.1
 void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
@@ -340,7 +374,7 @@ void rlc_tx_am_entity::check_marking(rlc_sdu &sdu) {
 
       // WE LIMIT OURSELVES TO L4S PACKETS (ECT(1))
       if(*tos == 1){ 
-        if (l4s.l4s_mode == L4SMode::PERIODICAL) {
+        if (l4s.l4s_mode == L4SMode::PERIODICAL || l4s.l4s_mode == L4SMode::LAST_DELAY) {
           check_periodical_marking(sdu);
         } else if (l4s.l4s_mode == L4SMode::WEIGHTED_AVERAGE) {
           check_weighted_average_marking(sdu);
@@ -359,9 +393,13 @@ void rlc_tx_am_entity::check_periodical_marking(rlc_sdu &sdu) {
   if (duration > L4S_UPDATE_PERIO) {
     l4s.last_L4S_report = now;
     // UPDATES MARKING PROB IF DURATION REACHED PERIOD
-    update_l4s_probability(duration);
+    if (l4s.l4s_mode == L4SMode::LAST_DELAY){
+      update_l4s_probability_last_delay();
+    }else{
+      update_l4s_probability_est_delay(duration);
+    }
   }
-  if (l4s.markingMode == L4SMarkingMode::DU) {
+  if (l4s.marking_mode == L4SMarkingMode::DU) {
     // CHECK IF HAS TO MARK PACKET
     int random_number = l4s.dis(l4s.gen);
     if (random_number < l4s.marking_prob)
@@ -385,13 +423,13 @@ void rlc_tx_am_entity::check_weighted_average_marking(rlc_sdu &sdu) {
       p = 100.0 * (delay_est - l4s.min_queue_delay) / (l4s.max_queue_delay - l4s.min_queue_delay);
     }
     l4s.p_marking = p;
-    if (l4s.markingMode == L4SMarkingMode::F1) {
+    if (l4s.marking_mode == L4SMarkingMode::F1) {
       uint16_t dl_cong_info = l4s.p_marking * 100;
       upper_dn.update_cong_info(dl_cong_info);
     }
   }
 
-  if (l4s.markingMode == L4SMarkingMode::DU) {
+  if (l4s.marking_mode == L4SMarkingMode::DU) {
     double random_number = l4s.dis(l4s.gen);
     if (random_number < l4s.p_marking) {
       mark_l4s_packet(sdu);
@@ -445,8 +483,8 @@ size_t rlc_tx_am_entity::pull_pdu(span<uint8_t> rlc_pdu_buf, slot_point sl) SRSR
   if (sl != last_slot){ 
     last_slot = sl;
 
-    if (l4s.l4s_mode) {
-      l4s.grantedBytes.fetch_add(grant_len); // Marking at DU
+    if (l4s.l4s_mode != L4SMode::INACTIVE) {
+      l4s.granted_bytes.fetch_add(grant_len); // Marking at DU
       auto g = l4s.weighted_granted_bytes.load(std::memory_order_acquire);
       g = g * (1.0 - l4s.weighted_alpha) + l4s.weighted_alpha * grant_len;
       l4s.weighted_granted_bytes.store(g, std::memory_order_relaxed);
@@ -626,6 +664,7 @@ size_t rlc_tx_am_entity::build_new_pdu(span<uint8_t> rlc_pdu_buf)
   // Update TX Next
   auto latency = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() -
                                                                       sdu_info.time_of_arrival);
+  if(l4s.l4s_mode == L4SMode::LAST_DELAY) l4s.last_sdu_delay.store(latency.count() / 1000,std::memory_order_relaxed);
   metrics_low.metrics_add_sdu_latency_us(latency.count() / 1000);
   metrics_low.metrics_add_pulled_sdus(1);
   st.tx_next = (st.tx_next + 1) % mod;
@@ -789,6 +828,7 @@ size_t rlc_tx_am_entity::build_continued_sdu_segment(span<uint8_t> rlc_pdu_buf, 
     auto latency = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() -
                                                                         sdu_info.time_of_arrival);
     metrics_low.metrics_add_sdu_latency_us(latency.count() / 1000);
+    if(l4s.l4s_mode == L4SMode::LAST_DELAY) l4s.last_sdu_delay.store(latency.count() / 1000,std::memory_order_relaxed);
     metrics_low.metrics_add_pulled_sdus(1);
     st.tx_next = (st.tx_next + 1) % mod;
   }

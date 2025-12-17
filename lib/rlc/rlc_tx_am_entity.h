@@ -97,18 +97,20 @@ enum L4SMode {
   INACTIVE,
   PERIODICAL,
   WEIGHTED_AVERAGE,
+  LAST_DELAY // MARKING BASED ON THE LAST DELAY, PERIODICAL
 };
 
 
 enum L4SMarkingMode {
-  F1,
-  DU,
+  F1, // DU SENDS MARKING PROBABILITY TO CU THROUGH F1-U
+  DU, // DU MARKS PACKETS
+  NONE // DO NOT MARK NOR SEND ANY MARKING PROBABILITY
 };
 
 /// \brief Structure storing L4S-related variables
 struct l4s_utils {
   L4SMode l4s_mode = L4SMode::INACTIVE;
-  L4SMarkingMode markingMode = L4SMarkingMode::DU;
+  L4SMarkingMode marking_mode = L4SMarkingMode::NONE;
 
   double min_queue_delay = 0.005; // 5 ms
   double max_queue_delay = 0.010; // 10ms
@@ -126,7 +128,9 @@ struct l4s_utils {
   std::chrono::time_point<std::chrono::steady_clock> last_L4S_report;
 
   /// \brief Used to compute total number of bytes drained by MAC layer (another thread)
-  std::atomic<size_t>                                grantedBytes;
+  std::atomic<size_t>                                granted_bytes;
+  /// \brief Used to store last delays  
+  std::atomic<uint32_t>                              last_sdu_delay;
 
 
   // weighted marking variables
@@ -137,7 +141,7 @@ struct l4s_utils {
   
   // Constructor: initializes everything
   l4s_utils()
-    : gen(rd()), dis(0,100), last_L4S_report(std::chrono::steady_clock::now()), grantedBytes(0), weighted_granted_bytes(0.0) {}
+    : gen(rd()), dis(0,100), last_L4S_report(std::chrono::steady_clock::now()), granted_bytes(0), weighted_granted_bytes(0.0) {}
 };
 
 
@@ -443,8 +447,14 @@ private:
   // Marks a given packet (ECN-CE)
   void mark_l4s_packet(rlc_sdu &sdu);
 
-  // Updates the marking probability when necessary
-  void update_l4s_probability(double period); 
+  // Applies the well-known L4S Formula
+  int update_l4s_probability(double delay);
+
+  // Updates the marking probability by estimating the queue delays (cf transmission opportunities)
+  void update_l4s_probability_est_delay(double period); 
+
+  // Updates the marking probability by retrieving the last sojourn time (cf SDU delay)
+  void update_l4s_probability_last_delay();
 
   void check_marking(rlc_sdu &sdu);
 
