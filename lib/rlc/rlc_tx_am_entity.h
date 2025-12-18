@@ -128,9 +128,9 @@ struct l4s_utils {
   std::chrono::time_point<std::chrono::steady_clock> last_L4S_report;
 
   /// \brief Used to compute total number of bytes drained by MAC layer (another thread)
-  std::atomic<size_t>                                granted_bytes;
+  std::atomic<size_t>                               granted_bytes;
   /// \brief Used to store last delays  
-  std::atomic<uint32_t>                              last_sdu_delay;
+  std::atomic<double>                               last_sdu_delay;
 
 
   // weighted marking variables

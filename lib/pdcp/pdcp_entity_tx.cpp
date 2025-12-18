@@ -719,6 +719,7 @@ if (cfg.discard_timer.has_value()) {
  void pdcp_entity_tx::modify_marking_probability(int marking_prob_)
  {
    marking_prob = marking_prob_;
+   logger.log_debug("Modifying PDCP Marking Probability = {} ",marking_prob_);
  }
  
  /*

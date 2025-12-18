@@ -305,8 +305,8 @@ void rlc_tx_am_entity::read_env_vars() {
   /// @brief Updates the ECN-CE marking probability
   /// Updates the ECN-CE marking probability based on last sojourn time
   void rlc_tx_am_entity::update_l4s_probability_last_delay(){
-    uint32_t last_queue_delay = l4s.last_sdu_delay.load(std::memory_order_relaxed);
-    logger.log_debug("Last sojourn time = {} ms ",static_cast<uint64_t>(last_queue_delay));
+    double last_queue_delay = l4s.last_sdu_delay.load(std::memory_order_relaxed);
+    logger.log_debug("Last sojourn time = {} s ",last_queue_delay);
     l4s.marking_prob = update_l4s_probability(last_queue_delay);
 
     // Updates the Marking Probability for upper layer (PDCP through F1 Interface)
@@ -665,7 +665,8 @@ size_t rlc_tx_am_entity::build_new_pdu(span<uint8_t> rlc_pdu_buf)
   // Update TX Next
   auto latency = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() -
                                                                       sdu_info.time_of_arrival);
-  if(l4s.l4s_mode == L4SMode::LAST_DELAY) l4s.last_sdu_delay.store(latency.count() / 1000000,std::memory_order_relaxed);
+
+  if(l4s.l4s_mode == L4SMode::LAST_DELAY) l4s.last_sdu_delay.store(std::chrono::duration<double>(latency).count(),std::memory_order_relaxed);
   metrics_low.metrics_add_sdu_latency_us(latency.count() / 1000);
   metrics_low.metrics_add_pulled_sdus(1);
   st.tx_next = (st.tx_next + 1) % mod;
@@ -828,8 +829,8 @@ size_t rlc_tx_am_entity::build_continued_sdu_segment(span<uint8_t> rlc_pdu_buf, 
   if (si == rlc_si_field::last_segment) {
     auto latency = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() -
                                                                         sdu_info.time_of_arrival);
-    if(l4s.l4s_mode == L4SMode::LAST_DELAY) l4s.last_sdu_delay.store(latency.count() / 1000000,std::memory_order_relaxed);
     metrics_low.metrics_add_sdu_latency_us(latency.count() / 1000);
+    if(l4s.l4s_mode == L4SMode::LAST_DELAY) l4s.last_sdu_delay.store(std::chrono::duration<double>(latency).count(),std::memory_order_relaxed);
     metrics_low.metrics_add_pulled_sdus(1);
     st.tx_next = (st.tx_next + 1) % mod;
   }
