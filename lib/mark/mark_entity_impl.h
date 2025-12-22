@@ -8,6 +8,10 @@
 #include <unordered_map>
 #include "srsran/ctsa/ctsa.h"
 
+#define L4S_MAX_QUEUE_DELAY "L4S_MAX_QUEUE_DELAY"
+#define RATE_CALC_WINDOW "L4SPAN_RATE_CALC_WINDOW"
+#define RATE_PRED_WINDOW "L4SPAN_RATE_PRED_WINDOW"
+
 namespace srsran {
 
 namespace srs_cu_up {
@@ -31,11 +35,15 @@ public:
   {
     dequeue_rate_cal_wind = 50;
     dequeue_rate_pred_wind = 50;
-    l4s_tq_thr = 10000; // 10000 ns = 10 ms;
+    l4s_tq_thr = 10000; // 10000 ns (ms) = 10 ms = 0.010 s;
     classic_tq_thr = 100000; // 50000 ns = 50 ms;
     dequeue_history = (double*)malloc(sizeof(double) * dequeue_rate_pred_wind);
     n_max = 1500*150;
     nof_ue = 1;
+
+    read_env_vars(); // May overwrite some values
+    printf("\nL4SPAN entity: \n\t- Marking threshold = %f;\n\t- Rate calculation window %zu;\n\t- Rate Prediction window %zu;\n",
+         l4s_tq_thr, dequeue_rate_cal_wind, dequeue_rate_pred_wind);
   }
   ~mark_entity_impl() override = default;
 
@@ -462,6 +470,69 @@ private:
   double l4s_tq_thr;
   double classic_tq_thr;
   uint32_t n_max;
+
+
+  /// @brief: Used to read window sizes (size_t) from environment variable
+  /// Returns 0 if there is a problem
+  size_t read_size_t_env_var(const char* name){
+    size_t value=0;
+    const char* c = getenv(name);
+    if (c != nullptr && c[0] != '\0') {
+      try {
+        size_t v = static_cast<size_t>(std::stoull(std::string(c)));
+        if (v >= 0.0) {
+          value = v;
+        } else {
+          printf("Ignored %s (negative): %s\n", name, c);
+        }
+      } catch (const std::exception& e) {
+        printf("Failed to parse %s='%s': %s.",
+              name,
+              c,
+              e.what());
+      }
+    }
+    return value;
+  }
+
+  /// @brief: Used to read the L4S threshold (double) from environment variable
+  /// Returns 0 if there is a problem
+  double read_l4s_tresh_env_var(const char* name){
+    double value=0;
+    const char* c = getenv(name);
+    if (c != nullptr && c[0] != '\0') {
+      try {
+        double v = std::stod(std::string(c));
+        if (v >= 0.0) {
+          value = v;
+        } else {
+          printf("Ignored %s (negative): %s\n", name, c);
+        }
+      } catch (const std::exception& e) {
+        printf("Failed to parse %s='%s': %s.",
+              name,
+              c,
+              e.what());
+      }
+    }
+    return value;
+  }
+
+  /// @brief: reads the environment variable to set some parameters
+  void read_env_vars()
+  {
+    // L4S MARKING THRESHOLD
+    double read_thresh = read_l4s_tresh_env_var(L4S_MAX_QUEUE_DELAY);
+    l4s_tq_thr = read_thresh ? read_thresh * 1000000 : l4s_tq_thr; // default value if problem (x10000 to translate from seconds to microseconds)
+
+    // COMPUTED DEQUEUE RATE TIME WINDOW
+    size_t read_rate = read_size_t_env_var(RATE_CALC_WINDOW);
+    dequeue_rate_cal_wind = read_rate ? read_rate : dequeue_rate_cal_wind; // default value if problem 
+
+    // PREDICTED DEQUEUE RATE TIME WINDOW
+    read_rate =  read_size_t_env_var(RATE_PRED_WINDOW);
+    dequeue_rate_pred_wind = read_rate ? read_rate : dequeue_rate_pred_wind; // default value if problem
+  } 
 
   // called upon receiving a downlink packet
   void drb_queue_update(iphdr ipv4_hdr, drb_id_t drb_id, std::chrono::microseconds now, ip::five_tuple f_tuple)
