@@ -97,7 +97,6 @@ public:
 
   void on_new_pdu(nru_ul_message msg) override
   {
-    srslog::fetch_basic_logger("F1-U").warning("F1U Gateway at CU: received Data"); // RECEIVED BY CU 
     srsran_assert(f1u_handler != nullptr, "GTP-U handler must not be nullptr");
     f1u_handler->handle_pdu(std::move(msg));
   }
