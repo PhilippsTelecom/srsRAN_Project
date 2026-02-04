@@ -8,9 +8,16 @@
 #include <unordered_map>
 #include "srsran/ctsa/ctsa.h"
 
+#include <tuple>
+#include <queue>
+#include <fstream>
+#include <string>
+#include <filesystem>
+
 #define L4S_MAX_QUEUE_DELAY "L4S_MAX_QUEUE_DELAY"
 #define RATE_CALC_WINDOW "L4SPAN_RATE_CALC_WINDOW"
 #define RATE_PRED_WINDOW "L4SPAN_RATE_PRED_WINDOW"
+#define THRESH_CSV_FILE "THRESH_CSV_FILE"
 
 namespace srsran {
 
@@ -40,12 +47,34 @@ public:
     dequeue_history = (double*)malloc(sizeof(double) * dequeue_rate_pred_wind);
     n_max = 1500*150;
     nof_ue = 1;
+    l4span_log_path = "L4Span.csv";
 
     read_env_vars(); // May overwrite some values
-    printf("\nL4SPAN entity: \n\t- Marking threshold = %f;\n\t- Rate calculation window %zu;\n\t- Rate Prediction window %zu;\n",
-         l4s_tq_thr, dequeue_rate_cal_wind, dequeue_rate_pred_wind);
+    printf("\nL4SPAN entity: \n\t- Marking threshold = %f;\n\t- Rate calculation window %zu;\n\t- Rate Prediction window %zu;\n\t- Output CSV %s;\n",
+         l4s_tq_thr, dequeue_rate_cal_wind, dequeue_rate_pred_wind,l4span_log_path.c_str());
   }
-  ~mark_entity_impl() override = default;
+
+  ~mark_entity_impl() override {
+    save_csv_file();
+  }
+
+  void save_csv_file(){
+    // SAVE FILE
+    std::ofstream fout(l4span_log_path); 
+    while (! thresholds.empty()){
+      thresh t = thresholds.front();
+      thresholds.pop();
+      // Retrieve Values
+      long long tim     = std::get<0>(t);
+      double predicted  = std::get<1>(t);
+      double error_dis  = std::get<2>(t);
+      double required   = std::get<3>(t);
+      double est_del    = std::get<4>(t);
+      // Write Values in file
+      fout<<tim<<","<<predicted<<","<<error_dis<<","<<required<<","<<est_del<<"\n";
+    }
+    fout.close();
+  }
 
   mark_rx_pdu_handler& get_mark_rx_pdu_handler() final{ return *rx.get(); };
   mark_tx_sdu_handler& get_mark_tx_sdu_handler() final { return *this; };
@@ -427,6 +456,12 @@ private:
   pdu_session_id_t      psi;
   mark_rx_sdu_notifier& rx_sdu_notifier;
 
+
+  // Timestamp / Prediction Rate / Error Rate / Required Rate / Queue delay (in micro seconds)
+  typedef std::tuple<long long,double,double,double,double> thresh; 
+  std::queue<thresh> thresholds; // Made of tuples
+
+
   // std::unique_ptr<m1_cu_up_gateway_bearer> m1_gw_bearer;
   // std::unique_ptr<m1_bearer>               m1;
 
@@ -461,6 +496,8 @@ private:
   size_t dequeue_rate_cal_wind;
   /// @brief window side used to predict the packet dequeue rate
   size_t dequeue_rate_pred_wind;
+  /// @brief where to save the L4SPan log file
+  std::filesystem::path l4span_log_path;
 
   double* dequeue_history;
 
@@ -518,6 +555,22 @@ private:
     return value;
   }
 
+  /// @brief: Used to read the path where to put the log
+  // The parent folder must exist, and the file name must have an extension
+  std::filesystem::path read_l4span_log_file(const char* name){
+    std::filesystem::path path_name = "";
+    const char* c= getenv(name);
+    if (c) {
+        path_name = c;
+        std::filesystem::path dir_name = path_name.parent_path();
+        auto ext = path_name.extension();
+        if (! std::filesystem::exists(dir_name) || ext == ""){
+          path_name="";
+        }
+      }
+    return path_name;
+  }
+
   /// @brief: reads the environment variable to set some parameters
   void read_env_vars()
   {
@@ -532,6 +585,10 @@ private:
     // PREDICTED DEQUEUE RATE TIME WINDOW
     read_rate =  read_size_t_env_var(RATE_PRED_WINDOW);
     dequeue_rate_pred_wind = read_rate ? read_rate : dequeue_rate_pred_wind; // default value if problem
+
+    // WHERE TO WRITE LOG
+    std::filesystem::path path = read_l4span_log_file(THRESH_CSV_FILE);
+    l4span_log_path = !path.empty() ? path : l4span_log_path;
   } 
 
   // called upon receiving a downlink packet
@@ -719,6 +776,15 @@ private:
     // L4S flow only
     if (rx.get()->drb_flow_state[drb_id].have_l4s) {
     // && !rx.get()->drb_flow_state[drb_id].have_classic){
+      
+      // TO LOG THE THRESHOLDS
+      auto now        = std::chrono::system_clock::now();
+      auto duration   = now.time_since_epoch();
+      auto timestamp  = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+
+      thresh curr_thresh = thresh(timestamp,predicted_dequeue_rate,predicted_error,required_dequeue_rate,predicted_qdely);
+      thresholds.push(curr_thresh);
+
       if (required_dequeue_rate >  predicted_dequeue_rate + predicted_error) {
         rx.get()->drb_flow_state[drb_id].mark_l4s = RAND_MAX;
       } else if (required_dequeue_rate < predicted_dequeue_rate - predicted_error) {
