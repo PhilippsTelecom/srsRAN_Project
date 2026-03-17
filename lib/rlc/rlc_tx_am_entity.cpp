@@ -132,6 +132,25 @@ std::string marking_mode_to_str(L4SMarkingMode mm) {
   return "BAD MARKING MODE";
 }
 
+double rlc_tx_am_entity::read_float(const char* name){
+  double value=0;
+  const char *c = getenv(name);
+  if (c != nullptr && c[0] != '\0') {
+    try {
+      value = std::stod(std::string(c));
+      if (value < 0.0) {
+        printf("Ignored %s (negative): %s\n", name, c);
+      }
+    } catch (const std::exception& e) {
+      printf("Failed to parse %s='%s': %s.",
+             name,
+             c,
+             e.what());
+    }
+  }
+  return value;
+}
+
 void rlc_tx_am_entity::read_env_vars() {
   const char *c = getenv(L4S_MODE);
   std::string l4s_mode = c == nullptr ? "" : c;
@@ -158,43 +177,9 @@ void rlc_tx_am_entity::read_env_vars() {
 
 
   // Parse minimum queueing delay (seconds) from env, keep default on error/empty.
-  c = getenv(L4S_MIN_QUEUE_DELAY);
-  if (c != nullptr && c[0] != '\0') {
-    try {
-      double v = std::stod(std::string(c));
-      if (v >= 0.0) {
-        l4s.min_queue_delay = v;
-      } else {
-        printf("Ignored %s (negative): %s\n", L4S_MIN_QUEUE_DELAY, c);
-      }
-    } catch (const std::exception& e) {
-      printf("Failed to parse %s='%s': %s. Keeping default min_queue_delay=%.6fs\n",
-             L4S_MIN_QUEUE_DELAY,
-             c,
-             e.what(),
-             l4s.min_queue_delay);
-    }
-  }
-
+  l4s.min_queue_delay = read_float(L4S_MIN_QUEUE_DELAY);
   // Parse maximum queueing delay (seconds) from env, keep default on error/empty.
-  c = getenv(L4S_MAX_QUEUE_DELAY);
-  if (c != nullptr && c[0] != '\0') {
-    try {
-      double v = std::stod(std::string(c));
-      if (v >= 0.0) {
-        l4s.max_queue_delay = v;
-      } else {
-        printf("Ignored %s (negative): %s\n", L4S_MAX_QUEUE_DELAY, c);
-      }
-    } catch (const std::exception& e) {
-      printf("Failed to parse %s='%s': %s. Keeping default max_queue_delay=%.6fs\n",
-             L4S_MAX_QUEUE_DELAY,
-             c,
-             e.what(),
-             l4s.max_queue_delay);
-    }
-  }
-
+  l4s.max_queue_delay = read_float(L4S_MAX_QUEUE_DELAY);
   // Sanity: ensure min <= max
   if (l4s.min_queue_delay > l4s.max_queue_delay) {
     printf(
@@ -204,11 +189,17 @@ void rlc_tx_am_entity::read_env_vars() {
     std::swap(l4s.min_queue_delay, l4s.max_queue_delay);
   }
 
-  printf("AM entity: L4S mode: (ENV L4S = %s) marking_mode=%s  min_delay=%.6fs max_delay=%.6fs\n",
-         mode_to_str(l4s.l4s_mode).c_str(),
-         marking_mode_to_str(l4s.marking_mode).c_str(),
-         l4s.min_queue_delay,
-         l4s.max_queue_delay);
+  // Other Hyper-parameters
+  l4s.update_period=read_float(L4S_UPDATE_PERIO);
+  l4s.alpha=read_float(L4S_ALPHA);
+
+  printf("AM entity: L4S mode: (ENV L4S = %s) marking_mode=%s  min_delay=%.6fs max_delay=%.6fs update=%.6fs alpha=%.6f \n",
+          mode_to_str(l4s.l4s_mode).c_str(),
+          marking_mode_to_str(l4s.marking_mode).c_str(),
+          l4s.min_queue_delay,
+          l4s.max_queue_delay,
+          l4s.update_period,
+          l4s.alpha);
 }
 
 
@@ -273,9 +264,9 @@ void rlc_tx_am_entity::read_env_vars() {
   /// Applies the L4S Formula to update the probability
   int rlc_tx_am_entity::update_l4s_probability(double delay){
     float tmp_mark_prob = 0; 
-    if(delay > l4s.max_queue_delay) tmp_mark_prob = 100; 
-    else tmp_mark_prob = delay < l4s.min_queue_delay ? 0 : float(delay - l4s.min_queue_delay) / (l4s.max_queue_delay - l4s.min_queue_delay) * 100;
-    return int(L4S_ALPHA * tmp_mark_prob + (1-L4S_ALPHA) * l4s.marking_prob);
+    if(delay > l4s.max_queue_delay) {tmp_mark_prob = 100;}
+    else {tmp_mark_prob = delay < l4s.min_queue_delay ? 0 : float(delay - l4s.min_queue_delay) / (l4s.max_queue_delay - l4s.min_queue_delay) * 100;}
+    return int(l4s.alpha * tmp_mark_prob + (1-l4s.alpha) * l4s.marking_prob);
   }
 
   /// @brief Updates the ECN-CE marking probability
@@ -391,7 +382,7 @@ void rlc_tx_am_entity::check_periodical_marking(rlc_sdu &sdu) {
   auto now= std::chrono::steady_clock::now();
   std::chrono::duration<double> diff = now - l4s.last_L4S_report;
   double duration = std::chrono::duration<double>(diff).count();
-  if (duration > L4S_UPDATE_PERIO) {
+  if (duration > l4s.update_period) {
     l4s.last_L4S_report = now;
     // UPDATES MARKING PROB IF DURATION REACHED PERIOD
     if (l4s.l4s_mode == L4SMode::LAST_DELAY){

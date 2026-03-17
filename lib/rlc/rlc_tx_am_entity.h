@@ -43,10 +43,9 @@
 #define L4S_MARKING_MODE "L4S_MARKING_MODE"
 #define L4S_MIN_QUEUE_DELAY "L4S_MIN_QUEUE_DELAY"
 #define L4S_MAX_QUEUE_DELAY "L4S_MAX_QUEUE_DELAY"
+#define L4S_UPDATE_PERIO "L4S_UPDATE_PERIOD"
+#define L4S_ALPHA "L4S_ALPHA"
 
-
-#define L4S_UPDATE_PERIO 0.005 // marking probability update
-#define L4S_ALPHA 0.8
 
 namespace srsran {
 
@@ -112,8 +111,10 @@ struct l4s_utils {
   L4SMode l4s_mode = L4SMode::INACTIVE;
   L4SMarkingMode marking_mode = L4SMarkingMode::NONE;
 
-  double min_queue_delay = 0.005; // 5 ms
-  double max_queue_delay = 0.010; // 10ms
+  double min_queue_delay  = 0.005; // 5 ms
+  double max_queue_delay  = 0.010; // 10ms
+  double update_period    = 0.005;
+  double alpha            = 0.8; 
 
 
   /// \brief Current Marking Probability 
@@ -440,6 +441,7 @@ private:
   }
 
   void read_env_vars();
+  double read_float(const char*);
 
   /// Re-computes the IP checksum
   void compute_checksum(uint8_t* data, uint8_t result[2]);
